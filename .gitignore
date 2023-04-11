@@ -129,3 +129,5 @@ dmypy.json
 .pyre/
 
 for_test.py
+.idea
+test_scripts

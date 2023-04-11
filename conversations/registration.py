@@ -5,16 +5,15 @@ from telegram.ext import (
     Filters,
 )
 
-from constants import TRAINER_ID, DATABASE
-from utilities import get_data_db, db_execute
+from bot.commands import REGISTRATION
+from bot.constants import TRAINER_ID, DATABASE
+from bot.utilities import db_execute, get_students_ids
 
 NAME, LAST_NAME = range(2)
 
 
 def start_registration(update, _):
-    # TODO: добавить проверку, что пользователь уже зареган
-    execution = ('SELECT chat_id FROM Students',)
-    students_ids = (student[0] for student in get_data_db(DATABASE, execution))
+    students_ids = get_students_ids(DATABASE)
     chat_id = update.effective_chat.id
 
     if chat_id in students_ids:
@@ -65,7 +64,7 @@ def invalid_name(bot, _):
 
 
 reg_handler = ConversationHandler(
-    entry_points=[CommandHandler('start', start_registration)],
+    entry_points=[CommandHandler(REGISTRATION, start_registration)],
     states={
         NAME: [MessageHandler(Filters.regex(r'^[a-zA-Zа-яА-Я]+$'), get_name)],
         LAST_NAME: [

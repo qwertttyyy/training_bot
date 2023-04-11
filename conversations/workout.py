@@ -7,8 +7,9 @@ from telegram.ext import (
     Filters,
 )
 
-from constants import TRAINER_ID, DATABASE
-from utilities import db_execute, get_data_db
+from bot.commands import UPDATE_WORKOUT
+from bot.constants import TRAINER_ID, DATABASE
+from bot.utilities import get_data_db
 
 START = 1
 
@@ -17,19 +18,15 @@ def show_students(update, context):
     # TODO: Сделать отправку тренировки из таблицы
     #
     if update.effective_chat.id == TRAINER_ID:
-        create_workout_table = (
-            '''CREATE TABLE IF NOT EXISTS Workouts (
-                   id INTEGER PRIMARY KEY AUTOINCREMENT,
-                   chat_id INTEGER NOT NULL
-            );''',
-        )
-        db_execute(DATABASE, create_workout_table)
-        # убрать WHERE если нужно чтобы отображались все студенты,
-        # вместе с теми которым задача уже отправлена
+        # create_workout_table = (
+        #     '''CREATE TABLE IF NOT EXISTS Workouts (
+        #            id INTEGER PRIMARY KEY AUTOINCREMENT,
+        #            chat_id INTEGER NOT NULL
+        #     );''',
+        # )
+        # db_execute(DATABASE, create_workout_table)
         execution = (
-            '''SELECT chat_id, name, last_name FROM Students
-               WHERE chat_id NOT IN (SELECT chat_id FROM Workouts); 
-                    ''',
+            ('SELECT chat_id, name, last_name FROM Students',)
         )
         buttons = []
         students = get_data_db(DATABASE, execution)
@@ -56,8 +53,8 @@ def show_students(update, context):
 
 def send_workout(update, context):
     student = int(update.callback_query.data)
-    execution = ('INSERT INTO Workouts (chat_id) VALUES (?)', (student,))
-    db_execute(DATABASE, execution)
+    # execution = ('INSERT INTO Workouts (chat_id) VALUES (?)', (student,))
+    # db_execute(DATABASE, execution)
     context.chat_data['student_id'] = student
     context.bot.send_message(
         chat_id=update.effective_chat.id,
@@ -78,7 +75,7 @@ def workout(update, context):
 
 def cancel(update, context):
     context.bot.send_message(
-        chat_id=update.effective_chat.id, text='Диалог закончен'
+        chat_id=update.effective_chat.id, text='Диалог завершен'
     )
     return ConversationHandler.END
 
@@ -89,7 +86,7 @@ def invalid_training(bot, _):
 
 
 workout_handler = ConversationHandler(
-    entry_points=[CommandHandler('sendworkout', show_students)],
+    entry_points=[CommandHandler(UPDATE_WORKOUT, show_students)],
     states={
         START: [
             CallbackQueryHandler(cancel, pattern=r'^1$'),
