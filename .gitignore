@@ -128,6 +128,8 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-for_test.py
 .idea
 test_scripts
+google_sheets/*.json
+!google_sheets/styles.json
+

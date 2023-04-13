@@ -1,8 +1,13 @@
 from sqlite3 import Cursor
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ConversationHandler, CommandHandler, Filters, \
-    MessageHandler, CallbackQueryHandler
+from telegram.ext import (
+    ConversationHandler,
+    CommandHandler,
+    Filters,
+    MessageHandler,
+    CallbackQueryHandler,
+)
 
 from bot.commands import REPORT
 from bot.constants import DATABASE, TRAINER_ID
@@ -20,15 +25,17 @@ def send_report(update, _):
 
     if update.effective_chat.id != TRAINER_ID:
         buttons = [
-            [InlineKeyboardButton('Отправить скриншот',
-                                  callback_data='screen')],
-            [InlineKeyboardButton('Завершить', callback_data='end')]
+            [
+                InlineKeyboardButton(
+                    'Отправить скриншот', callback_data='screen'
+                )
+            ],
+            [InlineKeyboardButton('Завершить', callback_data='end')],
         ]
         reply_markup = InlineKeyboardMarkup(buttons)
 
         update.message.reply_text(
-            'Отправь отчёт после тренировки.\n',
-            reply_markup=reply_markup
+            'Отправь отчёт после тренировки.\n', reply_markup=reply_markup
         )
         update.message.reply_text('Введи отчёт:')
 
@@ -40,7 +47,7 @@ def send_report(update, _):
 def get_report(update, context):
     get_name = (
         'SELECT name, last_name FROM Students WHERE chat_id = ?',
-        (update.effective_chat.id,)
+        (update.effective_chat.id,),
     )
     name = get_data_db(DATABASE, get_name, method=Cursor.fetchone)
     message = (
@@ -49,16 +56,17 @@ def get_report(update, context):
     )
     context.bot.send_message(chat_id=TRAINER_ID, text=message)
 
-    update.message.reply_text('Отчёт отправлен\n'
-                              'Теперь можешь отправить скриншот, '
-                              'либо заверши диалог')
+    update.message.reply_text(
+        'Отчёт отправлен\n'
+        'Теперь можешь отправить скриншот, '
+        'либо заверши диалог'
+    )
     return START
 
 
 def get_screenshot(update, context):
     context.bot.send_message(
-        text='Отправь скриншот',
-        chat_id=update.effective_chat.id
+        text='Отправь скриншот', chat_id=update.effective_chat.id
     )
     return SCREENSHOT
 
@@ -87,9 +95,9 @@ report_handler = ConversationHandler(
         START: [
             CallbackQueryHandler(get_screenshot, pattern=r'^screen$'),
             CallbackQueryHandler(cancel, pattern=r'^end$'),
-            MessageHandler(Filters.text, get_report)
+            MessageHandler(Filters.text, get_report),
         ],
-        SCREENSHOT: [MessageHandler(Filters.photo, send_screenshot)]
+        SCREENSHOT: [MessageHandler(Filters.photo, send_screenshot)],
     },
-    fallbacks=[MessageHandler(Filters.photo, invalid_report)]
+    fallbacks=[MessageHandler(Filters.photo, invalid_report)],
 )

@@ -25,9 +25,7 @@ def show_students(update, context):
         #     );''',
         # )
         # db_execute(DATABASE, create_workout_table)
-        execution = (
-            ('SELECT chat_id, name, last_name FROM Students',)
-        )
+        execution = ('SELECT chat_id, name, last_name FROM Students',)
         buttons = []
         students = get_data_db(DATABASE, execution)
         for student in students:
@@ -82,7 +80,8 @@ def cancel(update, context):
 
 def invalid_training(bot, _):
     bot.message.reply_text(
-        'Отправляй текст только когда нужно, либо заверши диалог!')
+        'Отправляй текст только когда нужно, либо заверши диалог!'
+    )
 
 
 workout_handler = ConversationHandler(

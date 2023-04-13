@@ -11,9 +11,8 @@ from conversations.workout import workout_handler
 # TODO: Сделать меню из всех команд
 
 def send_reminders(_):
-    # TODO: Первым делом очищает вчерашние таблицы workouts, feelings, reports
     # c = context
-    pass
+    ...
 
 
 def start_bot():
