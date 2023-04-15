@@ -7,24 +7,21 @@ from telegram.ext import (
     Filters,
 )
 
-from bot.commands import UPDATE_WORKOUT
-from bot.constants import TRAINER_ID, DATABASE
-from bot.utilities import get_data_db
+from bot.commands import SEND_WORKOUT
+from bot.constants import (
+    TRAINER_ID,
+    DATABASE,
+    SPREADSHEET_ID,
+    dates_range_regex,
+)
+from bot.utilities import get_data_db, get_student_name
+from google_sheets.sheets import GoogleSheet
 
-START = 1
+START, TABLE = range(2)
 
 
 def show_students(update, context):
-    # TODO: Сделать отправку тренировки из таблицы
-    #
     if update.effective_chat.id == TRAINER_ID:
-        # create_workout_table = (
-        #     '''CREATE TABLE IF NOT EXISTS Workouts (
-        #            id INTEGER PRIMARY KEY AUTOINCREMENT,
-        #            chat_id INTEGER NOT NULL
-        #     );''',
-        # )
-        # db_execute(DATABASE, create_workout_table)
         execution = ('SELECT chat_id, name, last_name FROM Students',)
         buttons = []
         students = get_data_db(DATABASE, execution)
@@ -33,11 +30,14 @@ def show_students(update, context):
             button = InlineKeyboardButton(text, callback_data=student[0])
             buttons.append([button])
 
-        buttons.append([InlineKeyboardButton('Завершить', callback_data='1')])
+        buttons.append(
+            [InlineKeyboardButton('Завершить', callback_data='cancel')]
+        )
         reply_markup = InlineKeyboardMarkup(buttons)
 
-        message = update.message.reply_text(
-            "Выбери студента, которому отправить тренировку:",
+        message = context.bot.send_message(
+            text="Выбери студента, которому отправить тренировку:",
+            chat_id=TRAINER_ID,
             reply_markup=reply_markup,
         )
         context.chat_data['students_message'] = message.message_id
@@ -51,23 +51,78 @@ def show_students(update, context):
 
 def send_workout(update, context):
     student = int(update.callback_query.data)
-    # execution = ('INSERT INTO Workouts (chat_id) VALUES (?)', (student,))
-    # db_execute(DATABASE, execution)
     context.chat_data['student_id'] = student
+    buttons = [
+        [
+            InlineKeyboardButton(
+                'Отправить тренировки из таблицы', callback_data='table'
+            )
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(buttons)
     context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text=f'Введи тренировку для студента:',
+        text='Введи тренировку для студента, '
+        'либо нажми "отправить из таблицы":',
+        reply_markup=reply_markup,
     )
     return START
 
 
-def workout(update, context):
+def workout_from_table(_, context):
+    message = (
+        'Введи диапазон дат из таблицы из которых отправить '
+        'тренировки.\nФормат ввода: 01.02.2023-12.02.2023'
+    )
+    buttons = [[InlineKeyboardButton('Назад', callback_data='back')]]
+    reply_markup = InlineKeyboardMarkup(buttons)
+    context.bot.send_message(
+        chat_id=TRAINER_ID, text=message, reply_markup=reply_markup
+    )
+    return TABLE
+
+
+def send_from_table(update, context):
+    gs = GoogleSheet(SPREADSHEET_ID)
+
+    chat_id = context.chat_data['student_id']
+    dates_range = update.message.text
+
+    date1, date2 = dates_range.split('-')
+    fullname = ' '.join(get_student_name(DATABASE, chat_id))
+    dates = gs.get_data(f'{fullname}!A2:A')
+
+    rows = []
+    for i in range(len(dates)):
+        if dates[i]:
+            if date1 in dates[i][0] or date2 in dates[i][0]:
+                rows.append(i + 2)
+    trainings = gs.get_data(f'{fullname}!E{rows[0]}:E{rows[1]}')
+
+    message = ''
+    for training, day in zip(trainings, dates[rows[0] - 2 : rows[1] - 1]):
+        if training and day:
+            day = day[0][:9].replace(',', '')
+            message += f'{day} {training[0]}\n'
+
+    context.bot.send_message(chat_id=chat_id, text=message)
+    buttons = [[InlineKeyboardButton('Назад', callback_data='back')]]
+    reply_markup = InlineKeyboardMarkup(buttons)
+    context.bot.send_message(
+        chat_id=TRAINER_ID,
+        text='Тренировки отправлены',
+        reply_markup=reply_markup,
+    )
+
+
+def workout_from_input(update, context):
     message = f'Вот твоя задача на сегодня:\n' f'{update.message.text}'
     context.bot.send_message(
         chat_id=context.chat_data['student_id'], text=message
     )
-    update.message.reply_text('Тренировка отправлена')
-    del context.chat_data['student_id']
+    update.message.reply_text(
+        'Тренировка отправлена',
+    )
     show_students(update, context)
 
 
@@ -75,22 +130,30 @@ def cancel(update, context):
     context.bot.send_message(
         chat_id=update.effective_chat.id, text='Диалог завершен'
     )
+    if context.chat_data.get('student_id'):
+        del context.chat_data['student_id']
     return ConversationHandler.END
 
 
 def invalid_training(bot, _):
     bot.message.reply_text(
-        'Отправляй текст только когда нужно, либо заверши диалог!'
+        'Отправляй текст только когда нужно, либо заверши диалог!\n'
+        'Либо неверный формат данных!'
     )
 
 
 workout_handler = ConversationHandler(
-    entry_points=[CommandHandler(UPDATE_WORKOUT, show_students)],
+    entry_points=[CommandHandler(SEND_WORKOUT, show_students)],
     states={
         START: [
-            CallbackQueryHandler(cancel, pattern=r'^1$'),
+            CallbackQueryHandler(cancel, pattern=r'^cancel$'),
+            CallbackQueryHandler(workout_from_table, pattern=r'^table$'),
             CallbackQueryHandler(send_workout),
-            MessageHandler(Filters.regex(r''), workout),
+            MessageHandler(Filters.regex(r''), workout_from_input),
+        ],
+        TABLE: [
+            MessageHandler(Filters.regex(dates_range_regex), send_from_table),
+            CallbackQueryHandler(show_students, pattern=r'^back'),
         ],
     },
     fallbacks=[MessageHandler(Filters.regex, invalid_training)],

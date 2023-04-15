@@ -2,8 +2,6 @@ import sqlite3
 from sqlite3 import Cursor
 from typing import Callable
 
-from google_sheets.sheets import GoogleSheet
-
 
 def db_execute(database: str, execution: tuple):
     conn = sqlite3.connect(database)

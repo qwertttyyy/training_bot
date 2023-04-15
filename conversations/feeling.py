@@ -11,7 +11,6 @@ from bot.utilities import db_execute, get_data_db, get_student_name
 from bot.commands import FEELING
 from bot.constants import TRAINER_ID, DATABASE, SPREADSHEET_ID
 from bot.utilities import get_students_ids
-
 from google_sheets.sheets import GoogleSheet
 
 FEEl, SLEEP, PULS = range(3)
