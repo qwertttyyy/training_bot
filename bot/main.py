@@ -2,7 +2,7 @@ from telegram import Bot
 from telegram.ext import Updater
 
 from bot.commands.commands import start_handler
-from bot.constants import TOKEN
+from config import BOT_TOKEN
 from bot.conversations.registration import reg_handler
 from bot.conversations.feeling import feeling_handler
 from bot.conversations.report import report_handler
@@ -19,7 +19,7 @@ def send_reminders(_):
 
 
 def start_bot():
-    bot = Bot(TOKEN)
+    bot = Bot(BOT_TOKEN)
     updater = Updater(bot=bot, use_context=True)
     dp = updater.dispatcher
     # job = updater.job_queue

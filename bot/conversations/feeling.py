@@ -13,7 +13,7 @@ from bot.utilities import (
     send_to_table,
 )
 from bot.commands.command_list import FEELING
-from bot.constants import TRAINER_ID, DATABASE, SPREADSHEET_ID
+from config import TRAINER_ID, DATABASE, SPREADSHEET_ID
 from bot.utilities import get_students_ids
 
 FEEl, SLEEP, PULS = range(3)
@@ -44,7 +44,6 @@ def send_feeling(update, _):
 
 
 def get_feeling(update, _):
-    print(update.message.text)
     execution = (
         'UPDATE Feelings SET feeling = ? WHERE chat_id = ?',
         (update.message.text, update.effective_chat.id),
@@ -95,8 +94,8 @@ def get_puls(update, context):
     return ConversationHandler.END
 
 
-def invalid_feeling(bot, _):
-    bot.message.reply_text('Вводи только соответствующие цифры!')
+def invalid_feeling(update, _):
+    update.message.reply_text('Вводи только соответствующие цифры!')
 
 
 feeling_handler = ConversationHandler(

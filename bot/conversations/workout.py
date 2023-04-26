@@ -10,7 +10,7 @@ from telegram.ext import (
 )
 
 from bot.commands.command_list import SEND_WORKOUT
-from bot.constants import (
+from config import (
     TRAINER_ID,
     DATABASE,
     SPREADSHEET_ID,

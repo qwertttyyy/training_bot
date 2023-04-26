@@ -2,3 +2,4 @@ python-telegram-bot==13.7
 google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib
+python-dotenv==1.0.0

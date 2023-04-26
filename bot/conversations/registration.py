@@ -6,7 +6,7 @@ from telegram.ext import (
 )
 
 from bot.commands.command_list import REGISTRATION
-from bot.constants import TRAINER_ID, DATABASE, SPREADSHEET_ID
+from config import TRAINER_ID, DATABASE, SPREADSHEET_ID
 from bot.utilities import db_execute, get_students_ids, get_student_name
 from google_sheets.sheets import GoogleSheet
 

@@ -1,27 +1,40 @@
 import sqlite3
 from sqlite3 import Cursor
 from typing import Callable
-from datetime import datetime
+from datetime import datetime as dt
 
+from config import DB_LOGFILE, MESSAGES_LOGFILE, SHEETS_LOGFILE
 from google_sheets.sheets import GoogleSheet
+from log.logs_config import setup_logger
+
+db_logger = setup_logger('DATABASE_LOGGER', DB_LOGFILE)
+message_logger = setup_logger('MESSAGE_LOGGER', MESSAGES_LOGFILE)
+sheet_logger = setup_logger('SHEET_LOGGER', SHEETS_LOGFILE)
 
 
 def send_to_table(spreadsheet_id, data: list[int], name, first_column: str):
-    gs = GoogleSheet(spreadsheet_id)
-    sheet_range = name + '!A2:A'
-    dates = gs.get_data(sheet_range)
-    today = datetime.today().date()
+    try:
+        gs = GoogleSheet(spreadsheet_id)
+        sheet_range = name + '!A2:A'
+        sheet_logger.info()
+        dates = gs.get_data(sheet_range)
+        today = dt.today().date()
 
-    for column_index in range(1, len(dates) + 1):
-        date = dates[column_index - 1]
+        for column_index in range(1, len(dates) + 1):
+            date = dates[column_index - 1]
 
-        if date:
-            if (
-                datetime.strptime(date[0].split(', ')[1], '%d.%m.%Y').date()
-                == today
-            ):
-                gs.add_data(f'{name}!{first_column}{column_index + 1}', [data])
-                break
+            if date:
+                date = dt.strptime(date[0].split(', ')[1], '%d.%m.%Y').date()
+                if date == today:
+                    sheet_data = f'{name}!{first_column}{column_index + 1}'
+                    gs.add_data(sheet_data, [data])
+                    sheet_logger.info(
+                        f'Данные успешно добавлены в таблицу {sheet_data}'
+                    )
+                    break
+
+    except Exception as e:
+        sheet_logger.error(f'Ошибка записи в таблицу. {e}')
 
 
 def db_execute(database: str, execution: tuple):
@@ -34,7 +47,8 @@ def db_execute(database: str, execution: tuple):
 
 
 def get_data_db(
-    database: str, execution: tuple, method: Callable[[Cursor], list] = None
+        database: str, execution: tuple,
+        method: Callable[[Cursor], list] = None
 ):
     conn = sqlite3.connect(database)
     cursor = conn.cursor()
@@ -80,5 +94,8 @@ def send_message(context, chat_id, message, reply_markup):
         print(f'Ошибка отправки сообщения. {e}')
 
 
-def reply_message(update, chat_id, message, reply_markup=None):
-    update.message.reply_text()
+def reply_message(update, message, reply_markup=None):
+    try:
+        update.message.reply_text(message, reply_markup)
+    except Exception as e:
+        print(f'')

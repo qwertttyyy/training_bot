@@ -10,7 +10,7 @@ from telegram.ext import (
 )
 
 from bot.commands.command_list import REPORT
-from bot.constants import DATABASE, TRAINER_ID, SPREADSHEET_ID
+from config import DATABASE, TRAINER_ID, SPREADSHEET_ID
 from bot.utilities import (
     get_students_ids,
     get_data_db,
