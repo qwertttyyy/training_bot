@@ -1,5 +1,5 @@
-REGISTRATION = 'start'
+REGISTRATION = 'registration'
 FEELING = 'feeling'
-UPDATE_WORKOUT = 'updateworkout'
 SEND_WORKOUT = 'sendworkout'
 REPORT = 'report'
+START = 'start'

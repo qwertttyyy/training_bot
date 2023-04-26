@@ -5,7 +5,7 @@ from telegram.ext import (
     Filters,
 )
 
-from bot.commands import REGISTRATION
+from bot.commands.command_list import REGISTRATION
 from bot.constants import TRAINER_ID, DATABASE, SPREADSHEET_ID
 from bot.utilities import db_execute, get_students_ids, get_student_name
 from google_sheets.sheets import GoogleSheet
@@ -32,35 +32,45 @@ def start_registration(update, _):
         db_execute(DATABASE, registrate)
         to_feeling = ('INSERT INTO Feelings (chat_id) VALUES (?)', (chat_id,))
         db_execute(DATABASE, to_feeling)
+        to_reports = ('INSERT INTO Reports (chat_id) VALUES (?)', (chat_id,))
+        db_execute(DATABASE, to_reports)
+
         return NAME
 
     update.message.reply_text('Ты тренер, тебе не нужно регистрироваться)')
+
     return ConversationHandler.END
 
 
 def get_name(update, _):
-    print(update.message.text)
     execution = (
         'UPDATE Students SET name = ? WHERE chat_id = ?',
         (update.message.text, update.effective_chat.id),
     )
     db_execute(DATABASE, execution)
     update.message.reply_text('Введи свою фамилию:')
+
     return LAST_NAME
 
 
 def get_last_name(update, _):
-    print(update.message.text)
+    chat_id = update.effective_chat.id
     execution = (
         'UPDATE Students SET last_name = ? WHERE chat_id = ?',
-        (update.message.text, update.effective_chat.id),
+        (update.message.text, chat_id),
     )
     db_execute(DATABASE, execution)
 
-    name = get_student_name(DATABASE, update.effective_chat.id)
+    name = get_student_name(DATABASE, chat_id)
     fullname = f'{name[0]} {name[1]}'
     gs = GoogleSheet(SPREADSHEET_ID)
-    gs.add_sheet(fullname)
+    sheet_id = gs.add_sheet(fullname)
+
+    execution = (
+        'UPDATE Students SET sheet_id = ? WHERE chat_id = ?',
+        (sheet_id, chat_id),
+    )
+    db_execute(DATABASE, execution)
 
     update.message.reply_text('Ты зарегистрирован.')
 

@@ -131,5 +131,5 @@ dmypy.json
 .idea
 test_scripts
 google_sheets/*.json
-!google_sheets/styles.json
+!google_sheets/sheet_styles.json
 

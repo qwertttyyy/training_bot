@@ -7,7 +7,7 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
-from bot.constants import SPREADSHEET_ID
+from bot.constants import SPREADSHEET_ID, DATABASE
 
 
 class GoogleSheet:
@@ -19,7 +19,7 @@ class GoogleSheet:
         self.path = os.path.dirname(os.path.abspath(__file__))
         self.token_path = os.path.join(self.path, 'token.json')
         self.cred_path = os.path.join(self.path, 'credentials.json')
-        self.styles_path = os.path.join(self.path, 'styles.json')
+        self.styles_path = os.path.join(self.path, 'sheet_styles.json')
         creds = None
 
         if os.path.exists(self.token_path):
@@ -31,7 +31,6 @@ class GoogleSheet:
             if creds and creds.expired and creds.refresh_token:
                 creds.refresh(Request())
             else:
-                print('flow')
                 flow = InstalledAppFlow.from_client_secrets_file(
                     self.cred_path, self.SCOPES
                 )
@@ -56,22 +55,23 @@ class GoogleSheet:
             .get(spreadsheetId=self.spreadsheet_id, range=sheet_range)
             .execute()
         )
+
         return result.get('values')
 
-    def get_styles(self, sheet_range):
+    def get_styles(self, sheet_range, filepath):
         response = (
             self.service.spreadsheets()
             .get(
                 spreadsheetId=self.spreadsheet_id,
                 ranges=[sheet_range],
-                fields='sheets(data(rowData(values(userEnteredFormat))))',
+                fields='sheets(data(rowData(values(userEnteredFormat,userEnteredValue))))',
             )
             .execute()
         )
 
         # Сохранение стилей в файл
-        with open(self.styles_path, 'w') as f:
-            json.dump(response, f)
+        with open(filepath, 'w', encoding='UTF-8') as f:
+            json.dump(response, f, ensure_ascii=False)
 
     def add_sheet(self, sheet_name):
         with open(self.styles_path, 'r', encoding='UTF-8') as f:
@@ -161,3 +161,5 @@ class GoogleSheet:
         sheet_range = sheet_name + '!A2:A15'
         two_weeks = [[date] for date in two_weeks]
         self.add_data(sheet_range, two_weeks)
+
+        return sheet_id

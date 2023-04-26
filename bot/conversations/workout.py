@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ConversationHandler,
@@ -7,17 +9,16 @@ from telegram.ext import (
     Filters,
 )
 
-from bot.commands import SEND_WORKOUT
+from bot.commands.command_list import SEND_WORKOUT
 from bot.constants import (
     TRAINER_ID,
     DATABASE,
     SPREADSHEET_ID,
-    dates_range_regex,
 )
 from bot.utilities import get_data_db, get_student_name
 from google_sheets.sheets import GoogleSheet
 
-START, TABLE = range(2)
+START = 0
 
 
 def show_students(update, context):
@@ -25,6 +26,7 @@ def show_students(update, context):
         execution = ('SELECT chat_id, name, last_name FROM Students',)
         buttons = []
         students = get_data_db(DATABASE, execution)
+
         for student in students:
             text = f'{student[1]} {student[2]}'
             button = InlineKeyboardButton(text, callback_data=student[0])
@@ -41,11 +43,13 @@ def show_students(update, context):
             reply_markup=reply_markup,
         )
         context.chat_data['students_message'] = message.message_id
+
         return START
     else:
         update.message.reply_text(
             'Только тренер может использовать эту команду.'
         )
+
         return ConversationHandler.END
 
 
@@ -69,50 +73,46 @@ def send_workout(update, context):
     return START
 
 
-def workout_from_table(_, context):
-    message = (
-        'Введи диапазон дат из таблицы из которых отправить '
-        'тренировки.\nФормат ввода: 01.02.2023-12.02.2023'
-    )
-    buttons = [[InlineKeyboardButton('Назад', callback_data='back')]]
-    reply_markup = InlineKeyboardMarkup(buttons)
-    context.bot.send_message(
-        chat_id=TRAINER_ID, text=message, reply_markup=reply_markup
-    )
-    return TABLE
-
-
 def send_from_table(update, context):
     gs = GoogleSheet(SPREADSHEET_ID)
 
     chat_id = context.chat_data['student_id']
-    dates_range = update.message.text
 
-    date1, date2 = dates_range.split('-')
     fullname = ' '.join(get_student_name(DATABASE, chat_id))
-    dates = gs.get_data(f'{fullname}!A2:A')
+    today = datetime.today().date()
+    days_until_monday = (7 - today.weekday()) % 7
+    next_monday = (today + timedelta(days=days_until_monday)).strftime(
+        '%d.%m.%Y'
+    )
 
-    rows = []
+    dates = gs.get_data(f'{fullname}!A2:A')
+    monday_row_index = None
+
     for i in range(len(dates)):
         if dates[i]:
-            if date1 in dates[i][0] or date2 in dates[i][0]:
-                rows.append(i + 2)
-    trainings = gs.get_data(f'{fullname}!E{rows[0]}:E{rows[1]}')
+            if next_monday in dates[i][0]:
+                monday_row_index = i + 2
+
+    trainings = gs.get_data(
+        f'{fullname}!E{monday_row_index}:E{monday_row_index + 7}'
+    )
 
     message = ''
-    for training, day in zip(trainings, dates[rows[0] - 2 : rows[1] - 1]):
+    trainings_dates = zip(
+        trainings, dates[monday_row_index - 2 : monday_row_index + 6]
+    )
+
+    for training, day in trainings_dates:
         if training and day:
             day = day[0][:9].replace(',', '')
             message += f'{day} {training[0]}\n'
 
     context.bot.send_message(chat_id=chat_id, text=message)
-    buttons = [[InlineKeyboardButton('Назад', callback_data='back')]]
-    reply_markup = InlineKeyboardMarkup(buttons)
     context.bot.send_message(
         chat_id=TRAINER_ID,
         text='Тренировки отправлены',
-        reply_markup=reply_markup,
     )
+    show_students(update, context)
 
 
 def workout_from_input(update, context):
@@ -130,8 +130,10 @@ def cancel(update, context):
     context.bot.send_message(
         chat_id=update.effective_chat.id, text='Диалог завершен'
     )
+
     if context.chat_data.get('student_id'):
         del context.chat_data['student_id']
+
     return ConversationHandler.END
 
 
@@ -147,13 +149,9 @@ workout_handler = ConversationHandler(
     states={
         START: [
             CallbackQueryHandler(cancel, pattern=r'^cancel$'),
-            CallbackQueryHandler(workout_from_table, pattern=r'^table$'),
+            CallbackQueryHandler(send_from_table, pattern=r'^table$'),
             CallbackQueryHandler(send_workout),
             MessageHandler(Filters.regex(r''), workout_from_input),
-        ],
-        TABLE: [
-            MessageHandler(Filters.regex(dates_range_regex), send_from_table),
-            CallbackQueryHandler(show_students, pattern=r'^back'),
         ],
     },
     fallbacks=[MessageHandler(Filters.regex, invalid_training)],

@@ -1,17 +1,20 @@
 from telegram import Bot
 from telegram.ext import Updater
 
+from bot.commands.commands import start_handler
 from bot.constants import TOKEN
-from conversations.registration import reg_handler
-from conversations.feeling import feeling_handler
-from conversations.report import report_handler
-from conversations.workout import workout_handler
+from bot.conversations.registration import reg_handler
+from bot.conversations.feeling import feeling_handler
+from bot.conversations.report import report_handler
+from bot.conversations.workout import workout_handler
 
 
-# TODO: Сделать меню из всех команд
+# TODO: Сделать отдельную команду для отчёта после трени с пaрам расстояние,
+#  средний темп, средний пульс из стравы
+
 
 def send_reminders(_):
-    # c = context
+    # TODO: Рассылка напоминаний об утреннем отчёте
     ...
 
 
@@ -26,6 +29,8 @@ def start_bot():
     dp.add_handler(feeling_handler)
     dp.add_handler(workout_handler)
     dp.add_handler(report_handler)
+
+    dp.add_handler(start_handler)
 
     updater.start_polling()
     updater.idle()
