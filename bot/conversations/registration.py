@@ -36,26 +36,6 @@ def start_registration(update, _):
             'Привет! Тебе нужно зарегистрироваться.'
             '\nВведи своё имя: (только имя)',
         )
-        registrate = (
-            'INSERT INTO Students (chat_id, name, last_name) VALUES (?, ?, ?)',
-            (chat_id, 'Name', 'Surname'),
-        )
-        db_execute(DATABASE, registrate)
-        to_feeling = (
-            '''INSERT INTO Feelings (chat_id) 
-            SELECT ? WHERE NOT EXISTS 
-            (SELECT chat_id FROM Feelings WHERE chat_id = ?)''',
-            (chat_id, chat_id),
-        )
-        db_execute(DATABASE, to_feeling)
-        to_reports = (
-            '''INSERT INTO Reports (chat_id) 
-            SELECT ? WHERE NOT EXISTS 
-            (SELECT chat_id FROM Reports WHERE chat_id = ?)''',
-            (chat_id, chat_id),
-        )
-
-        db_execute(DATABASE, to_reports)
 
         return NAME
 
@@ -66,11 +46,29 @@ def start_registration(update, _):
 
 @except_function
 def get_name(update, _):
-    execution = (
-        'UPDATE Students SET name = ? WHERE chat_id = ?',
-        (update.message.text, update.effective_chat.id),
+    chat_id = update.effective_chat.id
+    name = update.message.text
+    registrate = (
+        'INSERT INTO Students (chat_id, name, last_name) VALUES (?, ?, ?)',
+        (chat_id, name, 'Surname'),
     )
-    db_execute(DATABASE, execution)
+    db_execute(DATABASE, registrate)
+    to_feeling = (
+        '''INSERT INTO Feelings (chat_id) 
+        SELECT ? WHERE NOT EXISTS 
+        (SELECT chat_id FROM Feelings WHERE chat_id = ?)''',
+        (chat_id, chat_id),
+    )
+    db_execute(DATABASE, to_feeling)
+    to_reports = (
+        '''INSERT INTO Reports (chat_id) 
+        SELECT ? WHERE NOT EXISTS 
+        (SELECT chat_id FROM Reports WHERE chat_id = ?)''',
+        (chat_id, chat_id),
+    )
+
+    db_execute(DATABASE, to_reports)
+
     reply_message(update, 'Введи свою фамилию: (только фамилия)')
 
     return LAST_NAME

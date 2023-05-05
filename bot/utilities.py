@@ -93,7 +93,7 @@ def send_message(context, chat_id, message, reply_markup=None):
         context.bot.send_message(
             chat_id=chat_id, text=message, reply_markup=reply_markup
         )
-        message_logger.info(f'Отправка сообщения ')
+        message_logger.info(f'Отправка сообщения {message}')
     except Exception:
         message_logger.exception(
             f'Ошибка отправки сообщения {message} -> {chat_id}'

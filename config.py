@@ -2,13 +2,14 @@ import os
 
 from dotenv import load_dotenv
 
-load_dotenv(dotenv_path='.tenv')
+PATH = os.path.dirname(os.path.abspath(__file__))
+
+load_dotenv(dotenv_path=os.path.join(PATH, '.tenv'))
 
 TRAINER_ID = int(os.getenv('TRAINER_ID'))
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 SPREADSHEET_ID = os.getenv('SPREADSHEET_ID')
 
-PATH = os.path.dirname(os.path.abspath(__file__))
 
 DATABASE = os.path.join(PATH, 'database/training.db')
 

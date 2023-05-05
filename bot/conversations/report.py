@@ -1,4 +1,5 @@
 from sqlite3 import Cursor
+from datetime import datetime as dt
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -88,9 +89,10 @@ def get_avg_pace(update, _):
 
 @except_function
 def get_avg_heart_rate(update, context):
+    chat_id = update.effective_chat.id
     execution = (
         'UPDATE Reports SET avg_heart_rate = ? WHERE chat_id = ?',
-        (update.message.text, update.effective_chat.id),
+        (update.message.text, chat_id),
     )
     db_execute(DATABASE, execution)
 
@@ -110,12 +112,14 @@ def get_avg_heart_rate(update, context):
 
     message = (
         f'Отчёт после тренировки студента {fullname}\n'
+        f'Дата: {dt.now().strftime("%d.%m.%Y")}\n'
         f'{report_data[0]}\n'
         f'Расстояние: {report_data[1]}\n'
         f'Средний темп: {report_data[2]}\n'
         f'Средний пульс: {report_data[3]}'
     )
     send_message(context, TRAINER_ID, message)
+    send_message(context, chat_id, message)
     gs = GoogleSheet(SPREADSHEET_ID)
     gs.send_to_table(report_data[1:], fullname, 'F')
 
