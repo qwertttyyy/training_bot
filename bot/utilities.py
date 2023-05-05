@@ -1,68 +1,72 @@
 import sqlite3
 from sqlite3 import Cursor
 from typing import Callable
-from datetime import datetime as dt
 
-from config import DB_LOGFILE, MESSAGES_LOGFILE, SHEETS_LOGFILE
-from google_sheets.sheets import GoogleSheet
+from telegram.ext import ConversationHandler
+
+from bot.exceptions import (
+    DatabaseExecutionError,
+    SendToGoogleSheetsError,
+    SendMessageError,
+    ReplyMessageError,
+    DatabaseGetDataError,
+    SheetCreateError,
+)
+from config import (
+    DB_LOGFILE,
+    MESSAGES_LOGFILE,
+    UNKNOWN_LOGFILE,
+)
 from log.logs_config import setup_logger
 
 db_logger = setup_logger('DATABASE_LOGGER', DB_LOGFILE)
 message_logger = setup_logger('MESSAGE_LOGGER', MESSAGES_LOGFILE)
-sheet_logger = setup_logger('SHEET_LOGGER', SHEETS_LOGFILE)
+unknown_logger = setup_logger('UNKNOWN_LOGGER', UNKNOWN_LOGFILE)
 
-
-def send_to_table(spreadsheet_id, data: list[int], name, first_column: str):
-    try:
-        gs = GoogleSheet(spreadsheet_id)
-        sheet_range = name + '!A2:A'
-        sheet_logger.info()
-        dates = gs.get_data(sheet_range)
-        today = dt.today().date()
-
-        for column_index in range(1, len(dates) + 1):
-            date = dates[column_index - 1]
-
-            if date:
-                date = dt.strptime(date[0].split(', ')[1], '%d.%m.%Y').date()
-                if date == today:
-                    sheet_data = f'{name}!{first_column}{column_index + 1}'
-                    gs.add_data(sheet_data, [data])
-                    sheet_logger.info(
-                        f'Данные успешно добавлены в таблицу {sheet_data}'
-                    )
-                    break
-
-    except Exception as e:
-        sheet_logger.error(f'Ошибка записи в таблицу. {e}')
+EXCEPTIONS = [
+    SendToGoogleSheetsError,
+    DatabaseExecutionError,
+    DatabaseGetDataError,
+    SendMessageError,
+    ReplyMessageError,
+    SheetCreateError,
+]
 
 
 def db_execute(database: str, execution: tuple):
-    conn = sqlite3.connect(database)
-    cursor = conn.cursor()
-    cursor.execute(*execution)
-    conn.commit()
-    cursor.close()
-    conn.close()
+    try:
+        conn = sqlite3.connect(database)
+        cursor = conn.cursor()
+        cursor.execute(*execution)
+        conn.commit()
+        cursor.close()
+        conn.close()
+        db_logger.info(f'Запись в бд {execution}')
+    except Exception:
+        db_logger.exception(f'Ошибка операции с базой {execution}')
+        raise DatabaseExecutionError()
 
 
 def get_data_db(
-        database: str, execution: tuple,
-        method: Callable[[Cursor], list] = None
+    database: str, execution: tuple, method: Callable[[Cursor], list] = None
 ):
-    conn = sqlite3.connect(database)
-    cursor = conn.cursor()
-    cursor.execute(*execution)
+    try:
+        conn = sqlite3.connect(database)
+        cursor = conn.cursor()
+        cursor.execute(*execution)
 
-    if method is Cursor.fetchone:
-        result = cursor.fetchone()
-    else:
-        result = cursor.fetchall()
+        if method is Cursor.fetchone:
+            result = cursor.fetchone()
+        else:
+            result = cursor.fetchall()
+        db_logger.info(f'Получение данных {result} из бд')
+        cursor.close()
+        conn.close()
 
-    cursor.close()
-    conn.close()
-
-    return result
+        return result
+    except Exception:
+        db_logger.exception(f'Ошибка получения данных {execution} из базы')
+        raise DatabaseGetDataError()
 
 
 def get_students_ids(database: str):
@@ -71,7 +75,6 @@ def get_students_ids(database: str):
         student[0]
         for student in get_data_db(database, execution, method=Cursor.fetchall)
     )
-
     return students_ids
 
 
@@ -85,17 +88,40 @@ def get_student_name(database: str, chat_id) -> list[str]:
     return name
 
 
-def send_message(context, chat_id, message, reply_markup):
+def send_message(context, chat_id, message, reply_markup=None):
     try:
         context.bot.send_message(
             chat_id=chat_id, text=message, reply_markup=reply_markup
         )
-    except Exception as e:
-        print(f'Ошибка отправки сообщения. {e}')
+        message_logger.info(f'Отправка сообщения ')
+    except Exception:
+        message_logger.exception(
+            f'Ошибка отправки сообщения {message} -> {chat_id}'
+        )
+        raise SendMessageError()
 
 
 def reply_message(update, message, reply_markup=None):
     try:
-        update.message.reply_text(message, reply_markup)
-    except Exception as e:
-        print(f'')
+        update.message.reply_text(message, reply_markup=reply_markup)
+        message_logger.info(f'Ответ сообщением - {message}')
+    except Exception:
+        message_logger.exception('Ошибка ответа на сообщение.')
+        raise ReplyMessageError()
+
+
+def except_function(func):
+    def wrapper(update, context):
+        try:
+            return func(update, context)
+        except Exception as e:
+            if e.__class__ not in EXCEPTIONS:
+                unknown_logger.exception(f'Ошибка: {e}')
+            message = (
+                'Что-то пошло не так, отправьте команду '
+                'заново или свяжитесь с @disinfect2'
+            )
+            send_message(context, update.effective_chat.id, message)
+            return ConversationHandler.END
+
+    return wrapper

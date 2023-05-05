@@ -10,61 +10,66 @@ from bot.utilities import (
     db_execute,
     get_data_db,
     get_student_name,
-    send_to_table,
+    reply_message,
+    except_function,
+    send_message,
 )
 from bot.commands.command_list import FEELING
 from config import TRAINER_ID, DATABASE, SPREADSHEET_ID
 from bot.utilities import get_students_ids
+from google_sheets.sheets import GoogleSheet
 
 FEEl, SLEEP, PULS = range(3)
 
 
+@except_function
 def send_feeling(update, _):
     students_ids = get_students_ids(DATABASE)
     chat_id = update.effective_chat.id
 
     if update.effective_chat.id != TRAINER_ID:
         if chat_id not in students_ids:
-            update.message.reply_text(
-                'Ты не зарегистрирован, пройди регистрацию!'
-            )
+            reply_message(update, 'Ты не зарегистрирован, пройди регистрацию!')
 
             return ConversationHandler.END
 
-        update.message.reply_text(
+        reply_message(
+            update,
             'Отправь отчёт о своём состоянии.\n'
-            'Как ты себя сейчас чувствуешь (от 1 до 10) ?'
+            'Как ты себя сейчас чувствуешь (от 1 до 10) ?',
         )
 
         return FEEl
-
-    update.message.reply_text('Ты тренер, тебе не нужно отправлять отчёты)')
+    reply_message(update, 'Ты тренер, тебе не нужно отправлять отчёты)')
 
     return ConversationHandler.END
 
 
+@except_function
 def get_feeling(update, _):
     execution = (
         'UPDATE Feelings SET feeling = ? WHERE chat_id = ?',
         (update.message.text, update.effective_chat.id),
     )
     db_execute(DATABASE, execution)
-    update.message.reply_text('Сколько ты спал?')
+    reply_message(update, 'Сколько ты спал? (ч.)')
 
     return SLEEP
 
 
+@except_function
 def get_sleep_hours(update, _):
     execution = (
         'UPDATE Feelings SET sleep = ? WHERE chat_id = ?',
         (update.message.text, update.effective_chat.id),
     )
     db_execute(DATABASE, execution)
-    update.message.reply_text('Какой у тебя пульс?')
+    reply_message(update, 'Какой у тебя пульс?')
 
     return PULS
 
 
+@except_function
 def get_puls(update, context):
     execution = (
         'UPDATE Feelings SET pulse = ? WHERE chat_id = ?',
@@ -87,15 +92,17 @@ def get_puls(update, context):
         f'Количество часов сна: {feelings[1]}\n'
         f'Пульс: {feelings[2]}'
     )
-    context.bot.send_message(chat_id=TRAINER_ID, text=message)
-    update.message.reply_text('Отчёт отправлен тренеру!')
-    send_to_table(SPREADSHEET_ID, feelings, fullname, 'B')
+    send_message(context, TRAINER_ID, message)
+    reply_message(update, 'Отчёт отправлен тренеру!')
+    gs = GoogleSheet(SPREADSHEET_ID)
+    gs.send_to_table(feelings, fullname, 'B')
 
     return ConversationHandler.END
 
 
+@except_function
 def invalid_feeling(update, _):
-    update.message.reply_text('Вводи только соответствующие цифры!')
+    reply_message(update, 'Вводи только соответствующие цифры!')
 
 
 feeling_handler = ConversationHandler(
@@ -104,7 +111,7 @@ feeling_handler = ConversationHandler(
         FEEl: [MessageHandler(Filters.regex(r'^([1-9]|10)$'), get_feeling)],
         SLEEP: [
             MessageHandler(
-                Filters.regex(r'^[0-9]{1,2}[.]?([0-9]+)?$'), get_sleep_hours
+                Filters.regex(r'^\d{1,2}(\.\d{1,2})?$'), get_sleep_hours
             )
         ],
         PULS: [MessageHandler(Filters.regex(r'^\d{2,3}$'), get_puls)],

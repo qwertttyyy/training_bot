@@ -1,7 +1,8 @@
 import logging
+from logging.handlers import RotatingFileHandler
 import os
 
-from config import LOGS_PATH
+from config import LOGS_PATH, MAX_LOG_FILE_SIZE
 
 
 def setup_logger(name: str, logfile: str):
@@ -11,7 +12,13 @@ def setup_logger(name: str, logfile: str):
         '%(lineno)d - %(message)s'
     )
     formatter = logging.Formatter(logs_format)
-    handler = logging.FileHandler(os.path.join(LOGS_PATH, logfile))
+    log_file_path = os.path.join(LOGS_PATH, logfile)
+    handler = RotatingFileHandler(
+        log_file_path,
+        mode='a',
+        maxBytes=MAX_LOG_FILE_SIZE,
+        encoding='UTF-8',
+    )
     handler.setFormatter(formatter)
 
     logger = logging.getLogger(name)
