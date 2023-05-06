@@ -1,25 +1,26 @@
-from sqlite3 import Cursor
+from datetime import datetime as dt
 
 from telegram.ext import (
     ConversationHandler,
     CommandHandler,
     MessageHandler,
-    Filters,
+    Filters, CallbackQueryHandler,
 )
+
+from bot.exceptions import ChatDataError
 from bot.utilities import (
-    db_execute,
-    get_data_db,
     get_student_name,
     reply_message,
     except_function,
-    send_message,
+    send_message, message_logger, clean_chat_data, cancel_markup,
 )
 from bot.commands.command_list import FEELING
 from config import TRAINER_ID, DATABASE, SPREADSHEET_ID
 from bot.utilities import get_students_ids
 from google_sheets.sheets import GoogleSheet
 
-FEEl, SLEEP, PULS = range(3)
+FEEl, SLEEP, PULSE = range(3)
+DATA_KEYS = ['feel', 'sleep', 'pulse']
 
 
 @except_function
@@ -37,6 +38,7 @@ def send_feeling(update, _):
             update,
             'Отправь отчёт о своём состоянии.\n'
             'Как ты себя сейчас чувствуешь (от 1 до 10) ?',
+            cancel_markup,
         )
 
         return FEEl
@@ -46,56 +48,63 @@ def send_feeling(update, _):
 
 
 @except_function
-def get_feeling(update, _):
-    execution = (
-        'UPDATE Feelings SET feeling = ? WHERE chat_id = ?',
-        (update.message.text, update.effective_chat.id),
-    )
-    db_execute(DATABASE, execution)
-    reply_message(update, 'Сколько ты спал? (ч.)')
+def get_feeling(update, context):
+    context.chat_data[DATA_KEYS[0]] = update.message.text
+    reply_message(update, 'Сколько ты спал? (ч.)', cancel_markup)
 
     return SLEEP
 
 
 @except_function
-def get_sleep_hours(update, _):
-    execution = (
-        'UPDATE Feelings SET sleep = ? WHERE chat_id = ?',
-        (update.message.text, update.effective_chat.id),
-    )
-    db_execute(DATABASE, execution)
-    reply_message(update, 'Какой у тебя пульс?')
+def get_sleep_hours(update, context):
+    context.chat_data[DATA_KEYS[1]] = update.message.text
+    reply_message(update, 'Какой у тебя пульс?', cancel_markup)
 
-    return PULS
+    return PULSE
 
 
 @except_function
 def get_puls(update, context):
-    execution = (
-        'UPDATE Feelings SET pulse = ? WHERE chat_id = ?',
-        (update.message.text, update.effective_chat.id),
-    )
-    db_execute(DATABASE, execution)
+    chat_id = update.effective_chat.id
 
-    get_data = (
-        'SELECT feeling, sleep, pulse FROM Feelings WHERE chat_id = ?',
-        (update.effective_chat.id,),
-    )
-    feelings = get_data_db(DATABASE, get_data, method=Cursor.fetchone)
+    context.chat_data[DATA_KEYS[2]] = update.message.text
+
+    feelings = []
+
+    for name in DATA_KEYS:
+        data = context.chat_data.get(name)
+        if not data:
+            message_logger.exception(f'Отсутствует переменная {name}')
+            raise ChatDataError()
+        feelings.append(data)
 
     name = get_student_name(DATABASE, update.effective_chat.id)
     fullname = f'{name[0]} {name[1]}'
 
     message = (
         f'Утренний отчёт студента {fullname}:\n'
+        f'Дата: {dt.now().strftime("%d.%m.%Y")}\n'
         f'Оценка самочувствия: {feelings[0]}\n'
         f'Количество часов сна: {feelings[1]}\n'
         f'Пульс: {feelings[2]}'
     )
+
+    clean_chat_data(context, DATA_KEYS)
+
     send_message(context, TRAINER_ID, message)
     reply_message(update, 'Отчёт отправлен тренеру!')
+    send_message(context, chat_id, message)
+
     gs = GoogleSheet(SPREADSHEET_ID)
     gs.send_to_table(feelings, fullname, 'B')
+
+    return ConversationHandler.END
+
+
+@except_function
+def cancel(update, context):
+    send_message(context, update.effective_chat.id, 'Отменено')
+    clean_chat_data(context, DATA_KEYS)
 
     return ConversationHandler.END
 
@@ -108,13 +117,20 @@ def invalid_feeling(update, _):
 feeling_handler = ConversationHandler(
     entry_points=[CommandHandler(FEELING, send_feeling)],
     states={
-        FEEl: [MessageHandler(Filters.regex(r'^([1-9]|10)$'), get_feeling)],
+        FEEl: [
+            MessageHandler(Filters.regex(r'^([1-9]|10)$'), get_feeling),
+            CallbackQueryHandler(cancel, pattern=r'^cancel'),
+        ],
         SLEEP: [
             MessageHandler(
-                Filters.regex(r'^\d{1,2}(\.\d{1,2})?$'), get_sleep_hours
-            )
+                Filters.regex(r'^\d{1,2}([.,]\d{1,2})?$'), get_sleep_hours
+            ),
+            CallbackQueryHandler(cancel, pattern=r'^cancel'),
         ],
-        PULS: [MessageHandler(Filters.regex(r'^\d{2,3}$'), get_puls)],
+        PULSE: [
+            MessageHandler(Filters.regex(r'^\d{2,3}$'), get_puls),
+            CallbackQueryHandler(cancel, pattern=r'^cancel'),
+        ],
     },
     fallbacks=[MessageHandler(Filters.regex, invalid_feeling)],
 )

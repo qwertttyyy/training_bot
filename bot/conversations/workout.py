@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime as dt
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -66,7 +66,10 @@ def send_workout(update, context):
         [
             InlineKeyboardButton(
                 'Отправить тренировки из таблицы', callback_data='table'
-            )
+            ),
+        ],
+        [
+            InlineKeyboardButton('Отменить', callback_data='cancel'),
         ]
     ]
     reply_markup = InlineKeyboardMarkup(buttons)
@@ -81,48 +84,22 @@ def send_workout(update, context):
 
 @except_function
 def send_from_table(update, context):
-    gs = GoogleSheet(SPREADSHEET_ID)
-
-    chat_id = context.chat_data['student_id']
+    chat_id = context.chat_data.get('student_id')
 
     fullname = ' '.join(get_student_name(DATABASE, chat_id))
-    today = datetime.today().date()
-    days_until_monday = (7 - today.weekday()) % 7
-    next_monday = (today + timedelta(days=days_until_monday)).strftime(
-        '%d.%m.%Y'
-    )
-
-    dates = gs.get_data(f'{fullname}!A2:A')
-
-    monday_row_index = None
-
-    for i in range(len(dates)):
-        if dates[i]:
-            if next_monday in dates[i][0]:
-                monday_row_index = i + 2
-
-    trainings = gs.get_data(
-        f'{fullname}!E{monday_row_index}:E{monday_row_index + 7}'
-    )
-
-    if not trainings or len(trainings) < 7:
-        message = (
-            'Таблица не заполнена!\n'
-            'Сначала заполни всю неделю в поле '
-            '"Задача" и отправь команду заново.'
-        )
-        send_message(context, update.effective_chat.id, message)
-        return ConversationHandler.END
+    gs = GoogleSheet(SPREADSHEET_ID)
+    data = gs.get_data(f'{fullname}!A:E')[1:]
 
     message = ''
-    trainings_dates = zip(
-        trainings, dates[monday_row_index - 2 : monday_row_index + 6]
-    )
 
-    for training, day in trainings_dates:
-        if training and day:
-            day = day[0][:9].replace(',', '')
-            message += f'{day} {training[0]}\n'
+    for line in data:
+        if line:
+            today = dt.today().date()
+            date = dt.strptime(line[0].split(', ')[1], '%d.%m.%Y').date()
+            if len(line) == 5 and date >= today:
+                day = line[0][:9].replace(',', '')
+                training = line[4]
+                message += f'{day} {training}\n'
 
     send_message(context, chat_id, message)
     send_message(
@@ -168,7 +145,7 @@ workout_handler = ConversationHandler(
     entry_points=[CommandHandler(SEND_WORKOUT, show_students)],
     states={
         START: [
-            CallbackQueryHandler(cancel, pattern=r'^cancel$'),
+            CallbackQueryHandler(cancel, pattern=r'^cancel'),
             CallbackQueryHandler(send_from_table, pattern=r'^table$'),
             CallbackQueryHandler(send_workout),
             MessageHandler(Filters.regex(r''), workout_from_input),

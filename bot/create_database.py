@@ -8,7 +8,8 @@ CREATE_STUDENTS = (
                 name TEXT NOT NULL,
                 last_name TEXT NOT NULL,
                 sheet_id INTEGER,
-                archive_id INTEGER
+                archive_id INTEGER,
+                tokens TEXT
                 )''',
 )
 

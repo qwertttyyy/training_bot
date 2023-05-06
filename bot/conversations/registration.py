@@ -2,23 +2,23 @@ from telegram.ext import (
     ConversationHandler,
     CommandHandler,
     MessageHandler,
-    Filters,
+    Filters, CallbackQueryHandler,
 )
 
 from bot.commands.command_list import REGISTRATION
-from bot.exceptions import SheetCreateError
+from bot.exceptions import SheetCreateError, ChatDataError
 from config import TRAINER_ID, DATABASE, SPREADSHEET_ID
 from bot.utilities import (
     db_execute,
     get_students_ids,
-    get_student_name,
     except_function,
     reply_message,
-    db_logger,
+    db_logger, message_logger, send_message, cancel_markup,
 )
 from google_sheets.sheets import GoogleSheet, sheet_logger
 
 NAME, LAST_NAME = range(2)
+KEY = 'name'
 
 
 @except_function
@@ -35,27 +35,8 @@ def start_registration(update, _):
             update,
             'Привет! Тебе нужно зарегистрироваться.'
             '\nВведи своё имя: (только имя)',
+            cancel_markup
         )
-        registrate = (
-            'INSERT INTO Students (chat_id, name, last_name) VALUES (?, ?, ?)',
-            (chat_id, 'Name', 'Surname'),
-        )
-        db_execute(DATABASE, registrate)
-        to_feeling = (
-            '''INSERT INTO Feelings (chat_id) 
-            SELECT ? WHERE NOT EXISTS 
-            (SELECT chat_id FROM Feelings WHERE chat_id = ?)''',
-            (chat_id, chat_id),
-        )
-        db_execute(DATABASE, to_feeling)
-        to_reports = (
-            '''INSERT INTO Reports (chat_id) 
-            SELECT ? WHERE NOT EXISTS 
-            (SELECT chat_id FROM Reports WHERE chat_id = ?)''',
-            (chat_id, chat_id),
-        )
-
-        db_execute(DATABASE, to_reports)
 
         return NAME
 
@@ -65,28 +46,29 @@ def start_registration(update, _):
 
 
 @except_function
-def get_name(update, _):
-    execution = (
-        'UPDATE Students SET name = ? WHERE chat_id = ?',
-        (update.message.text, update.effective_chat.id),
+def get_name(update, context):
+    name = update.message.text
+    context.chat_data[KEY] = name
+
+    reply_message(
+        update, 'Введи свою фамилию: (только фамилия)', cancel_markup
     )
-    db_execute(DATABASE, execution)
-    reply_message(update, 'Введи свою фамилию: (только фамилия)')
 
     return LAST_NAME
 
 
 @except_function
-def get_last_name(update, _):
+def get_last_name(update, context):
     chat_id = update.effective_chat.id
-    execution = (
-        'UPDATE Students SET last_name = ? WHERE chat_id = ?',
-        (update.message.text, chat_id),
-    )
-    db_execute(DATABASE, execution)
+    name = context.chat_data.get(KEY)
 
-    name = get_student_name(DATABASE, chat_id)
-    fullname = f'{name[0]} {name[1]}'
+    if not name:
+        message_logger.exception(f'Отсутствует переменная {KEY}')
+        raise ChatDataError()
+
+    last_name = update.message.text
+    fullname = f'{name} {last_name}'
+
     try:
         gs = GoogleSheet(SPREADSHEET_ID)
         sheet_id = gs.add_student_sheet(fullname)
@@ -95,18 +77,31 @@ def get_last_name(update, _):
         sheet_logger.exception(
             f'Ошибка добавления листа для {fullname} {chat_id}'
         )
-        delete_student = ('DELETE FROM Students WHERE chat_id = ?', chat_id)
-        db_execute(DATABASE, delete_student)
         raise SheetCreateError()
 
-    execution = (
-        'UPDATE Students SET sheet_id = ?, archive_id = ? WHERE chat_id = ?',
-        (sheet_id, archive_sheet_id, chat_id),
+    if context.chat_data.get(KEY):
+        del context.chat_data[KEY]
+
+    write_data = (
+        '''INSERT INTO Students
+         (chat_id, name, last_name, sheet_id, archive_id)
+          VALUES (?, ?, ?, ?, ?)''',
+        (chat_id, name, last_name, sheet_id, archive_sheet_id)
     )
-    db_execute(DATABASE, execution)
+    db_execute(DATABASE, write_data)
 
     reply_message(update, 'Ты зарегистрирован.')
     db_logger.info(f'Зарегистрирован пользователь: {fullname} - {chat_id}')
+
+    return ConversationHandler.END
+
+
+def cancel(update, context):
+    send_message(context, update.effective_chat.id, 'Отменено')
+
+    if context.chat_data.get(KEY):
+        del context.chat_data[KEY]
+
     return ConversationHandler.END
 
 
@@ -118,11 +113,17 @@ def invalid_name(update, _):
 
 
 reg_handler = ConversationHandler(
-    entry_points=[CommandHandler(REGISTRATION, start_registration)],
+    entry_points=[
+        CommandHandler(REGISTRATION, start_registration),
+    ],
     states={
-        NAME: [MessageHandler(Filters.regex(r'^[a-zA-Zа-яА-Я]+$'), get_name)],
+        NAME: [
+            MessageHandler(Filters.regex(r'^[a-zA-Zа-яА-Я]+$'), get_name),
+            CallbackQueryHandler(cancel, pattern=r'^cancel'),
+        ],
         LAST_NAME: [
-            MessageHandler(Filters.regex(r'^[a-zA-Zа-яА-Я]+$'), get_last_name)
+            MessageHandler(Filters.regex(r'^[a-zA-Zа-яА-Я]+$'), get_last_name),
+            CallbackQueryHandler(cancel, pattern=r'^cancel'),
         ],
     },
     fallbacks=[MessageHandler(Filters.regex, invalid_name)],
