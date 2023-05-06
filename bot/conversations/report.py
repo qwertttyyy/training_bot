@@ -11,19 +11,20 @@ from telegram.ext import (
 )
 
 from bot.commands.command_list import REPORT
+from bot.exceptions import ChatDataError
 from config import DATABASE, TRAINER_ID, SPREADSHEET_ID
 from bot.utilities import (
     get_students_ids,
     get_data_db,
-    db_execute,
     send_message,
     reply_message,
-    except_function,
+    except_function, message_logger, clean_chat_data, cancel_markup,
 )
 from google_sheets.sheets import GoogleSheet
 
 START, DISTANCE, AVG_PACE, AVG_HEART_RATE, SCREENSHOT = range(5)
-NUMBER_REGEX = r'^\d{1,5}(\.\d{1,3})?$'
+NUMBER_REGEX = r'^\d{1,5}([.,:]\d{1,3})?$'
+DATA_KEYS = ['report', 'distance', 'avg_pace', 'avg_heart_rate']
 
 
 @except_function
@@ -40,6 +41,7 @@ def send_report(update, _):
         reply_message(
             update,
             'Отправь отчёт после тренировки.\nВведи отчёт: (текст)',
+            cancel_markup,
         )
 
         return START
@@ -48,41 +50,31 @@ def send_report(update, _):
 
 
 @except_function
-def get_report(update, _):
-    execution = (
-        'UPDATE Reports SET report = ? WHERE chat_id = ?',
-        (update.message.text, update.effective_chat.id),
-    )
-    db_execute(DATABASE, execution)
+def get_report(update, context):
+    context.chat_data[DATA_KEYS[0]] = update.message.text
     reply_message(
         update,
         'Теперь вводи данные из Strava. Они должны быть целым или '
         'дробным числом до 3-х знаков после запятой\n'
         'Расстояние (м или км):',
+        cancel_markup,
     )
+
     return DISTANCE
 
 
 @except_function
-def get_distance(update, _):
-    execution = (
-        'UPDATE Reports SET distance = ? WHERE chat_id = ?',
-        (update.message.text, update.effective_chat.id),
-    )
-    db_execute(DATABASE, execution)
-    reply_message(update, 'Средний темп:')
+def get_distance(update, context):
+    context.chat_data[DATA_KEYS[1]] = update.message.text
+    reply_message(update, 'Средний темп:', cancel_markup)
 
     return AVG_PACE
 
 
 @except_function
-def get_avg_pace(update, _):
-    execution = (
-        'UPDATE Reports SET avg_pace = ? WHERE chat_id = ?',
-        (update.message.text, update.effective_chat.id),
-    )
-    db_execute(DATABASE, execution)
-    reply_message(update, 'Средний пульс:')
+def get_avg_pace(update, context):
+    context.chat_data[DATA_KEYS[2]] = update.message.text
+    reply_message(update, 'Средний пульс:', cancel_markup)
 
     return AVG_HEART_RATE
 
@@ -90,11 +82,7 @@ def get_avg_pace(update, _):
 @except_function
 def get_avg_heart_rate(update, context):
     chat_id = update.effective_chat.id
-    execution = (
-        'UPDATE Reports SET avg_heart_rate = ? WHERE chat_id = ?',
-        (update.message.text, chat_id),
-    )
-    db_execute(DATABASE, execution)
+    context.chat_data[DATA_KEYS[3]] = update.message.text
 
     get_name = (
         'SELECT name, last_name FROM Students WHERE chat_id = ?',
@@ -103,12 +91,14 @@ def get_avg_heart_rate(update, context):
     name = get_data_db(DATABASE, get_name, method=Cursor.fetchone)
     fullname = f'{name[0]} {name[1]}'
 
-    get_data = (
-        '''SELECT report, distance, avg_pace, avg_heart_rate
-        FROM Reports WHERE chat_id = ?''',
-        (update.effective_chat.id,),
-    )
-    report_data = get_data_db(DATABASE, get_data, method=Cursor.fetchone)
+    report_data = []
+
+    for key in DATA_KEYS:
+        data = context.chat_data.get(key)
+        if not name:
+            message_logger.exception(f'Отсутствует переменная {key}')
+            raise ChatDataError()
+        report_data.append(data)
 
     message = (
         f'Отчёт после тренировки студента {fullname}\n'
@@ -118,6 +108,9 @@ def get_avg_heart_rate(update, context):
         f'Средний темп: {report_data[2]}\n'
         f'Средний пульс: {report_data[3]}'
     )
+
+    clean_chat_data(context, DATA_KEYS)
+
     send_message(context, TRAINER_ID, message)
     send_message(context, chat_id, message)
     gs = GoogleSheet(SPREADSHEET_ID)
@@ -153,7 +146,7 @@ def send_screenshot(update, context):
 
 
 @except_function
-def cancel(update, context):
+def finish(update, context):
     send_message(context, update.effective_chat.id, 'Диалог завершен')
 
     return ConversationHandler.END
@@ -169,18 +162,34 @@ def invalid_input(update, _):
     reply_message(update, 'Некорректные данные.')
 
 
+@except_function
+def cancel(update, context):
+    send_message(context, update.effective_chat.id, 'Отменено')
+    clean_chat_data(context, DATA_KEYS)
+
+    return ConversationHandler.END
+
+
 report_handler = ConversationHandler(
     entry_points=[CommandHandler(REPORT, send_report)],
     states={
         START: [
-            MessageHandler(Filters.regex(r'^[^/].+$'), get_report),
+            MessageHandler(Filters.text, get_report),
+            CallbackQueryHandler(cancel, pattern=r'^cancel'),
         ],
-        DISTANCE: [MessageHandler(Filters.regex(NUMBER_REGEX), get_distance)],
-        AVG_PACE: [MessageHandler(Filters.regex(NUMBER_REGEX), get_avg_pace)],
+        DISTANCE: [
+            MessageHandler(Filters.regex(NUMBER_REGEX), get_distance),
+            CallbackQueryHandler(cancel, pattern=r'^cancel'),
+        ],
+        AVG_PACE: [
+            MessageHandler(Filters.regex(NUMBER_REGEX), get_avg_pace),
+            CallbackQueryHandler(cancel, pattern=r'^cancel'),
+        ],
         AVG_HEART_RATE: [
             MessageHandler(Filters.regex(NUMBER_REGEX), get_avg_heart_rate),
             CallbackQueryHandler(get_screenshot, pattern=r'^screen$'),
-            CallbackQueryHandler(cancel, pattern=r'^end$'),
+            CallbackQueryHandler(finish, pattern=r'^end$'),
+            CallbackQueryHandler(cancel, pattern=r'^cancel'),
         ],
         SCREENSHOT: [
             MessageHandler(Filters.photo, send_screenshot),

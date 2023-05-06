@@ -36,3 +36,7 @@ class WriteDataToSheetError(Exception):
 
 class GetDataFromSheetError(Exception):
     pass
+
+
+class ChatDataError(Exception):
+    pass

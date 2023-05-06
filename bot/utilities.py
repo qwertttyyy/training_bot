@@ -2,7 +2,8 @@ import sqlite3
 from sqlite3 import Cursor
 from typing import Callable
 
-from telegram.ext import ConversationHandler
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ConversationHandler, CallbackQueryHandler
 
 from bot.exceptions import (
     DatabaseExecutionError,
@@ -10,7 +11,7 @@ from bot.exceptions import (
     SendMessageError,
     ReplyMessageError,
     DatabaseGetDataError,
-    SheetCreateError,
+    SheetCreateError, ChatDataError,
 )
 from config import (
     DB_LOGFILE,
@@ -30,7 +31,12 @@ EXCEPTIONS = [
     SendMessageError,
     ReplyMessageError,
     SheetCreateError,
+    ChatDataError,
 ]
+
+cancel_markup = InlineKeyboardMarkup(
+    [[InlineKeyboardButton('Отменить', callback_data='cancel')]]
+)
 
 
 def db_execute(database: str, execution: tuple):
@@ -48,7 +54,8 @@ def db_execute(database: str, execution: tuple):
 
 
 def get_data_db(
-    database: str, execution: tuple, method: Callable[[Cursor], list] = None
+        database: str, execution: tuple,
+        method: Callable[[Cursor], list] = None
 ):
     try:
         conn = sqlite3.connect(database)
@@ -125,3 +132,9 @@ def except_function(func):
             return ConversationHandler.END
 
     return wrapper
+
+
+def clean_chat_data(context, data_keys):
+    for key in data_keys:
+        if context.chat_data.get(key):
+            del context.chat_data[key]
