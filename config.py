@@ -4,12 +4,11 @@ from dotenv import load_dotenv
 
 PATH = os.path.dirname(os.path.abspath(__file__))
 
-load_dotenv(dotenv_path=os.path.join(PATH, '.tenv'))
+load_dotenv()
 
 TRAINER_ID = int(os.getenv('TRAINER_ID'))
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 SPREADSHEET_ID = os.getenv('SPREADSHEET_ID')
-
 
 DATABASE = os.path.join(PATH, 'database/training.db')
 
@@ -21,3 +20,5 @@ SHEETS_LOGFILE = 'sheets.log'
 UNKNOWN_LOGFILE = 'unknown.log'
 
 MAX_LOG_FILE_SIZE = 25 * 1024
+
+LOGIN_URL = 'http://89.191.226.140:8000/login/strava/'

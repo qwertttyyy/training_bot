@@ -1,7 +1,11 @@
 from sqlite3 import Cursor
 from datetime import datetime as dt
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    InputMediaPhoto,
+)
 from telegram.ext import (
     ConversationHandler,
     CommandHandler,
@@ -10,7 +14,7 @@ from telegram.ext import (
     CallbackQueryHandler,
 )
 
-from bot.commands.command_list import REPORT
+from bot.commands.command_list import REPORT_COMMAND
 from bot.exceptions import ChatDataError
 from config import DATABASE, TRAINER_ID, SPREADSHEET_ID
 from bot.utilities import (
@@ -18,17 +22,22 @@ from bot.utilities import (
     get_data_db,
     send_message,
     reply_message,
-    except_function, message_logger, clean_chat_data, cancel_markup,
+    catch_exception,
+    message_logger,
+    clean_chat_data,
+    cancel_markup,
+    db_execute,
+    cancel_button,
 )
 from google_sheets.sheets import GoogleSheet
 
-START, DISTANCE, AVG_PACE, AVG_HEART_RATE, SCREENSHOT = range(5)
-NUMBER_REGEX = r'^\d{1,5}([.,:]\d{1,3})?$'
-DATA_KEYS = ['report', 'distance', 'avg_pace', 'avg_heart_rate']
+REPORT, SCREENSHOT, STRAVA, DISTANCE, AVG_TEMP, AVG_HEART_RATE = range(6)
+NUMBER_REGEX = r'^\d{1,2}([.,]\d{1,2})?$'
+DATA_KEYS = ['distance', 'avg_pace', 'avg_heart_rate', 'report', 'screenshots']
 
 
-@except_function
-def send_report(update, _):
+@catch_exception
+def send_report(update, context):
     students_ids = get_students_ids(DATABASE)
     chat_id = update.effective_chat.id
 
@@ -43,46 +52,142 @@ def send_report(update, _):
             'Отправь отчёт после тренировки.\nВведи отчёт: (текст)',
             cancel_markup,
         )
-
-        return START
+        context.chat_data['screenshots'] = []
+        return REPORT
     reply_message(update, 'Ты тренер, тебе не нужно отправлять отчёты)')
     return ConversationHandler.END
 
 
-@except_function
+@catch_exception
 def get_report(update, context):
-    context.chat_data[DATA_KEYS[0]] = update.message.text
+    report = update.message.text
+    if report.startswith('/') and not report.startswith('//'):
+        invalid_input(update, context)
+        return REPORT
+    else:
+        context.chat_data['report'] = update.message.text
+
+        buttons = [
+            [
+                InlineKeyboardButton(
+                    'Отправить скриншот', callback_data='screen'
+                )
+            ],
+            [InlineKeyboardButton('Продолжить', callback_data='strava')],
+        ]
+
+        reply_markup = InlineKeyboardMarkup(buttons)
+
+        reply_message(
+            update,
+            'Теперь можешь отправить один или несколько скриншотов по очереди,'
+            ' либо можешь отправить данные из Strava',
+            reply_markup,
+        )
+
+
+@catch_exception
+def get_screenshot(update, context):
+    send_message(
+        context,
+        update.effective_chat.id,
+        'Отправь один скриншот, он будет сохранён',
+    )
+    return SCREENSHOT
+
+
+@catch_exception
+def save_screenshot(update, context):
+    screenshot = InputMediaPhoto(update.message.photo[-1])
+    context.chat_data['screenshots'].append(screenshot)
+    buttons = [
+        [InlineKeyboardButton('Добавить скриншот', callback_data='screen')],
+        [InlineKeyboardButton('Продолжить', callback_data='strava')],
+        cancel_button,
+    ]
+
+    reply_markup = InlineKeyboardMarkup(buttons)
+
     reply_message(
         update,
-        'Теперь вводи данные из Strava. Они должны быть целым или '
-        'дробным числом до 3-х знаков после запятой\n'
-        'Расстояние (м или км):',
-        cancel_markup,
+        'Скриншот сохранён.\n'
+        'Можешь добавить ещё один, либо нажми продолжить, '
+        'чтобы отправить данные из Strava',
+        reply_markup,
     )
 
+    return SCREENSHOT
+
+
+def strava_choice(update, context):
+    buttons = [
+        [
+            InlineKeyboardButton(
+                'Ввести данные вручную', callback_data='strava_input'
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                'Отправить из приложения Strava', callback_data='strava_app'
+            )
+        ],
+        cancel_button,
+    ]
+
+    reply_markup = InlineKeyboardMarkup(buttons)
+
+    send_message(
+        context,
+        update.effective_chat.id,
+        'Теперь ты можешь отправить данные из Strava с помощью ручного ввода, '
+        'либо отправить данные из приложения, для этого тебе нужно авторизоваться '
+        'с помощью команды /strava',
+        reply_markup,
+    )
+
+    return STRAVA
+
+
+@catch_exception
+def get_strava_input(update, context):
+    chat_id = update.effective_chat.id
+    send_message(
+        context,
+        chat_id,
+        'Теперь вводи данные из Strava в указанном формате.\n'
+        'Расстояние:\n'
+        '(формат 00.00 км)',
+        cancel_markup,
+    )
     return DISTANCE
 
 
-@except_function
+@catch_exception
 def get_distance(update, context):
-    context.chat_data[DATA_KEYS[1]] = update.message.text
-    reply_message(update, 'Средний темп:', cancel_markup)
+    context.chat_data['distance'] = update.message.text
+    reply_message(update, 'Средний темп:\n' '(формат 0:00)', cancel_markup)
 
-    return AVG_PACE
+    return AVG_TEMP
 
 
-@except_function
+@catch_exception
 def get_avg_pace(update, context):
-    context.chat_data[DATA_KEYS[2]] = update.message.text
-    reply_message(update, 'Средний пульс:', cancel_markup)
+    context.chat_data['avg_pace'] = update.message.text
+    reply_message(update, 'Средний пульс:\n' '(формат 111)', cancel_markup)
 
     return AVG_HEART_RATE
 
 
-@except_function
+@catch_exception
 def get_avg_heart_rate(update, context):
+    context.chat_data['avg_heart_rate'] = update.message.text
+    send_strava_data(update, context)
+    return ConversationHandler.END
+
+
+@catch_exception
+def send_strava_data(update, context):
     chat_id = update.effective_chat.id
-    context.chat_data[DATA_KEYS[3]] = update.message.text
 
     get_name = (
         'SELECT name, last_name FROM Students WHERE chat_id = ?',
@@ -91,78 +196,82 @@ def get_avg_heart_rate(update, context):
     name = get_data_db(DATABASE, get_name, method=Cursor.fetchone)
     fullname = f'{name[0]} {name[1]}'
 
-    report_data = []
-
-    for key in DATA_KEYS:
+    report_data = {}
+    for key in DATA_KEYS[:-1]:
         data = context.chat_data.get(key)
-        if not name:
+        if not data:
             message_logger.exception(f'Отсутствует переменная {key}')
             raise ChatDataError()
-        report_data.append(data)
+        report_data[key] = data
 
     message = (
         f'Отчёт после тренировки студента {fullname}\n'
         f'Дата: {dt.now().strftime("%d.%m.%Y")}\n'
-        f'{report_data[0]}\n'
-        f'Расстояние: {report_data[1]}\n'
-        f'Средний темп: {report_data[2]}\n'
-        f'Средний пульс: {report_data[3]}'
+        f'{report_data["report"]}\n'
+        f'Расстояние: {report_data["distance"]}\n'
+        f'Средний темп: {report_data["avg_pace"]}\n'
+        f'Средний пульс: {report_data["avg_heart_rate"]}'
     )
+
+    send_message(context, TRAINER_ID, message)
+
+    screenshots = context.chat_data.get('screenshots')
+    if screenshots:
+        context.bot.send_media_group(chat_id=TRAINER_ID, media=screenshots)
 
     clean_chat_data(context, DATA_KEYS)
 
-    send_message(context, TRAINER_ID, message)
-    send_message(context, chat_id, message)
+    data_to_table = [report_data[key] for key in DATA_KEYS[:4]]
+
     gs = GoogleSheet(SPREADSHEET_ID)
-    gs.send_to_table(report_data[1:], fullname, 'F')
+    gs.send_to_table(data_to_table, fullname, 'F')
 
-    buttons = [
-        [InlineKeyboardButton('Отправить скриншот', callback_data='screen')],
-        [InlineKeyboardButton('Завершить', callback_data='end')],
-    ]
-    reply_markup = InlineKeyboardMarkup(buttons)
-
-    reply_message(
-        update,
-        'Отчёт отправлен тренеру.\n'
-        'Теперь можешь отправить скриншот, либо заверши диалог',
-        reply_markup,
+    db_execute(
+        DATABASE,
+        (
+            'UPDATE Students SET is_send_evening = 1 WHERE chat_id = ?',
+            (chat_id,),
+        ),
     )
 
+    send_message(context, chat_id, 'Отчёт отправлен тренеру!')
 
-@except_function
-def get_screenshot(update, context):
-    send_message(context, update.effective_chat.id, 'Отправь скриншот')
-    return SCREENSHOT
-
-
-@except_function
-def send_screenshot(update, context):
-    screenshot = update.message.photo[-1]
-    context.bot.send_photo(chat_id=TRAINER_ID, photo=screenshot)
-    reply_message(update, 'Скриншот отправлен тренеру. Диалог завершен.')
+    send_message(context, chat_id, message)
+    if screenshots:
+        context.bot.send_media_group(chat_id=chat_id, media=screenshots)
 
     return ConversationHandler.END
 
 
-@except_function
+@catch_exception
+def get_strava_app(update, context):
+    chat_id = update.effective_chat.id
+    context.chat_data['distance'] = '12.12'
+    context.chat_data['avg_pace'] = '2:22'
+    context.chat_data['avg_heart_rate'] = '111'
+    send_strava_data(update, context)
+
+    return ConversationHandler.END
+
+
+@catch_exception
 def finish(update, context):
     send_message(context, update.effective_chat.id, 'Диалог завершен')
 
     return ConversationHandler.END
 
 
-@except_function
+@catch_exception
 def invalid_report(update, _):
     reply_message(update, 'Отправь фото!')
 
 
-@except_function
+@catch_exception
 def invalid_input(update, _):
     reply_message(update, 'Некорректные данные.')
 
 
-@except_function
+@catch_exception
 def cancel(update, context):
     send_message(context, update.effective_chat.id, 'Отменено')
     clean_chat_data(context, DATA_KEYS)
@@ -171,28 +280,36 @@ def cancel(update, context):
 
 
 report_handler = ConversationHandler(
-    entry_points=[CommandHandler(REPORT, send_report)],
+    entry_points=[CommandHandler(REPORT_COMMAND, send_report)],
     states={
-        START: [
+        REPORT: [
             MessageHandler(Filters.text, get_report),
-            CallbackQueryHandler(cancel, pattern=r'^cancel'),
+            CallbackQueryHandler(cancel, pattern=r'^cancel$'),
+            CallbackQueryHandler(strava_choice, pattern=r'^strava$'),
+            CallbackQueryHandler(get_screenshot, pattern=r'^screen$'),
+        ],
+        SCREENSHOT: [
+            MessageHandler(Filters.photo, save_screenshot),
+            CallbackQueryHandler(get_screenshot, pattern=r'^screen$'),
+            CallbackQueryHandler(strava_choice, pattern=r'^strava$'),
+            CallbackQueryHandler(cancel, pattern=r'^cancel$'),
+        ],
+        STRAVA: [
+            CallbackQueryHandler(get_strava_input, pattern=r'^strava_input$'),
+            CallbackQueryHandler(get_strava_app, pattern=r'^strava_app$'),
         ],
         DISTANCE: [
             MessageHandler(Filters.regex(NUMBER_REGEX), get_distance),
-            CallbackQueryHandler(cancel, pattern=r'^cancel'),
+            CallbackQueryHandler(cancel, pattern=r'^cancel$'),
         ],
-        AVG_PACE: [
-            MessageHandler(Filters.regex(NUMBER_REGEX), get_avg_pace),
-            CallbackQueryHandler(cancel, pattern=r'^cancel'),
+        AVG_TEMP: [
+            MessageHandler(Filters.regex(r'^\d:\d{2}$'), get_avg_pace),
+            CallbackQueryHandler(cancel, pattern=r'^cancel$'),
         ],
         AVG_HEART_RATE: [
-            MessageHandler(Filters.regex(NUMBER_REGEX), get_avg_heart_rate),
-            CallbackQueryHandler(get_screenshot, pattern=r'^screen$'),
+            MessageHandler(Filters.regex(r'^\d{2,3}$'), get_avg_heart_rate),
             CallbackQueryHandler(finish, pattern=r'^end$'),
-            CallbackQueryHandler(cancel, pattern=r'^cancel'),
-        ],
-        SCREENSHOT: [
-            MessageHandler(Filters.photo, send_screenshot),
+            CallbackQueryHandler(cancel, pattern=r'^cancel$'),
         ],
     },
     fallbacks=[MessageHandler(Filters.regex, invalid_input)],

@@ -1,6 +1,10 @@
 from telegram import ParseMode
 from telegram.ext import CommandHandler
 
+from bot.commands.command_list import START_COMMAND, STRAVA_LOGIN
+from bot.utilities import reply_message
+from config import LOGIN_URL
+
 
 def start(update, _):
     commands = [
@@ -34,4 +38,17 @@ def start(update, _):
     update.message.reply_text(message_text, parse_mode=ParseMode.HTML)
 
 
-start_handler = CommandHandler('start', start)
+start_handler = CommandHandler(START_COMMAND, start)
+
+
+def strava_login(update, context):
+    chat_id = update.effective_chat.id
+    url = LOGIN_URL + f'?chat_id={chat_id}'
+    reply_message(
+        update,
+        'Чтобы авторизоваться через Strava перейдите по этой ссылке:  \n'
+        f'{url}',
+    )
+
+
+strava_handler = CommandHandler(STRAVA_LOGIN, strava_login)

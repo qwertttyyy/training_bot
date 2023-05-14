@@ -4,17 +4,22 @@ from telegram.ext import (
     ConversationHandler,
     CommandHandler,
     MessageHandler,
-    Filters, CallbackQueryHandler,
+    Filters,
+    CallbackQueryHandler,
 )
 
 from bot.exceptions import ChatDataError
 from bot.utilities import (
     get_student_name,
     reply_message,
-    except_function,
-    send_message, message_logger, clean_chat_data, cancel_markup,
+    catch_exception,
+    send_message,
+    message_logger,
+    clean_chat_data,
+    cancel_markup,
+    db_execute,
 )
-from bot.commands.command_list import FEELING
+from bot.commands.command_list import FEELING_COMMAND
 from config import TRAINER_ID, DATABASE, SPREADSHEET_ID
 from bot.utilities import get_students_ids
 from google_sheets.sheets import GoogleSheet
@@ -23,7 +28,7 @@ FEEl, SLEEP, PULSE = range(3)
 DATA_KEYS = ['feel', 'sleep', 'pulse']
 
 
-@except_function
+@catch_exception
 def send_feeling(update, _):
     students_ids = get_students_ids(DATABASE)
     chat_id = update.effective_chat.id
@@ -47,7 +52,7 @@ def send_feeling(update, _):
     return ConversationHandler.END
 
 
-@except_function
+@catch_exception
 def get_feeling(update, context):
     context.chat_data[DATA_KEYS[0]] = update.message.text
     reply_message(update, 'Сколько ты спал? (ч.)', cancel_markup)
@@ -55,7 +60,7 @@ def get_feeling(update, context):
     return SLEEP
 
 
-@except_function
+@catch_exception
 def get_sleep_hours(update, context):
     context.chat_data[DATA_KEYS[1]] = update.message.text
     reply_message(update, 'Какой у тебя пульс?', cancel_markup)
@@ -63,7 +68,7 @@ def get_sleep_hours(update, context):
     return PULSE
 
 
-@except_function
+@catch_exception
 def get_puls(update, context):
     chat_id = update.effective_chat.id
 
@@ -98,10 +103,18 @@ def get_puls(update, context):
     gs = GoogleSheet(SPREADSHEET_ID)
     gs.send_to_table(feelings, fullname, 'B')
 
+    db_execute(
+        DATABASE,
+        (
+            'UPDATE Students SET is_send_morning = 1 WHERE chat_id = ?',
+            (chat_id,),
+        ),
+    )
+
     return ConversationHandler.END
 
 
-@except_function
+@catch_exception
 def cancel(update, context):
     send_message(context, update.effective_chat.id, 'Отменено')
     clean_chat_data(context, DATA_KEYS)
@@ -109,13 +122,13 @@ def cancel(update, context):
     return ConversationHandler.END
 
 
-@except_function
+@catch_exception
 def invalid_feeling(update, _):
     reply_message(update, 'Вводи только соответствующие цифры!')
 
 
 feeling_handler = ConversationHandler(
-    entry_points=[CommandHandler(FEELING, send_feeling)],
+    entry_points=[CommandHandler(FEELING_COMMAND, send_feeling)],
     states={
         FEEl: [
             MessageHandler(Filters.regex(r'^([1-9]|10)$'), get_feeling),

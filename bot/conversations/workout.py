@@ -9,7 +9,7 @@ from telegram.ext import (
     Filters,
 )
 
-from bot.commands.command_list import SEND_WORKOUT
+from bot.commands.command_list import SEND_WORKOUT_COMMAND
 from config import (
     TRAINER_ID,
     DATABASE,
@@ -20,14 +20,14 @@ from bot.utilities import (
     get_student_name,
     send_message,
     reply_message,
-    except_function,
+    catch_exception,
 )
 from google_sheets.sheets import GoogleSheet
 
 START = 0
 
 
-@except_function
+@catch_exception
 def show_students(update, context):
     if update.effective_chat.id == TRAINER_ID:
         execution = ('SELECT chat_id, name, last_name FROM Students',)
@@ -58,7 +58,7 @@ def show_students(update, context):
         return ConversationHandler.END
 
 
-@except_function
+@catch_exception
 def send_workout(update, context):
     student = int(update.callback_query.data)
     context.chat_data['student_id'] = student
@@ -70,7 +70,7 @@ def send_workout(update, context):
         ],
         [
             InlineKeyboardButton('Отменить', callback_data='cancel'),
-        ]
+        ],
     ]
     reply_markup = InlineKeyboardMarkup(buttons)
     send_message(
@@ -82,7 +82,7 @@ def send_workout(update, context):
     return START
 
 
-@except_function
+@catch_exception
 def send_from_table(update, context):
     chat_id = context.chat_data.get('student_id')
 
@@ -111,7 +111,7 @@ def send_from_table(update, context):
     show_students(update, context)
 
 
-@except_function
+@catch_exception
 def workout_from_input(update, context):
     message = f'Вот твоя задача на сегодня:\n' f'{update.message.text}'
     send_message(context, context.chat_data['student_id'], message)
@@ -122,7 +122,7 @@ def workout_from_input(update, context):
     show_students(update, context)
 
 
-@except_function
+@catch_exception
 def cancel(update, context):
     send_message(context, update.effective_chat.id, 'Диалог завершен')
 
@@ -132,7 +132,7 @@ def cancel(update, context):
     return ConversationHandler.END
 
 
-@except_function
+@catch_exception
 def invalid_training(update, _):
     reply_message(
         update,
@@ -142,7 +142,7 @@ def invalid_training(update, _):
 
 
 workout_handler = ConversationHandler(
-    entry_points=[CommandHandler(SEND_WORKOUT, show_students)],
+    entry_points=[CommandHandler(SEND_WORKOUT_COMMAND, show_students)],
     states={
         START: [
             CallbackQueryHandler(cancel, pattern=r'^cancel'),
