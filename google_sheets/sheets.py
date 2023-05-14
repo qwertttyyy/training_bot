@@ -30,7 +30,8 @@ class GoogleSheet:
         self.path = os.path.dirname(os.path.abspath(__file__))
         self.token_path = os.path.join(self.path, 'token.json')
         self.cred_path = os.path.join(self.path, 'credentials.json')
-        self.styles_path = os.path.join(self.path, 'sheet_styles.json')
+        self.sheet_styles = os.path.join(self.path, 'sheet_style.json')
+        self.header_styles = os.path.join(self.path, 'header_style.json')
         creds = None
 
         if os.path.exists(self.token_path):
@@ -141,21 +142,54 @@ class GoogleSheet:
 
         return sheet_id
 
-    def add_student_sheet(self, sheet_name):
+    def archive_sheet(self, sheet_name):
+        sheet_id = self.add_sheet(sheet_name)
+
+        with open(self.header_styles, 'r', encoding='UTF-8') as f:
+            styles = json.load(f)
+
+        requests = [
+            {
+                'updateCells': {
+                    'rows': [styles],
+                    'fields': 'userEnteredValue.stringValue,'
+                    'userEnteredFormat.numberFormat,'
+                    'userEnteredFormat.borders,'
+                    'userEnteredFormat.backgroundColor,'
+                    'userEnteredFormat.horizontalAlignment,'
+                    'userEnteredFormat.verticalAlignment,'
+                    'userEnteredFormat.textFormat',
+                    'range': {
+                        'sheetId': sheet_id,
+                        'startRowIndex': 0,
+                        'startColumnIndex': 0,
+                        'endRowIndex': 1,
+                        'endColumnIndex': 9,
+                    },
+                }
+            }
+        ]
+
+        self.batch_update({'requests': requests})
+
+    def new_student_sheet(self, sheet_name):
         # создание нового листа
         sheet_id = self.add_sheet(sheet_name)
 
-        with open(self.styles_path, 'r', encoding='UTF-8') as f:
+        with open(self.sheet_styles, 'r', encoding='UTF-8') as f:
             styles = json.load(f)
 
         num_rows = len(styles['sheets'][0]['data'][0]['rowData'])
         num_cols = len(styles['sheets'][0]['data'][0]['rowData'][0]['values'])
 
         # Запрос на добавление таблицы с применением стилей
+
+        data = styles['sheets'][0]['data'][0]['rowData']
+
         requests = [
             {
                 'updateCells': {
-                    'rows': [],
+                    'rows': data,
                     'fields': 'userEnteredValue.stringValue,'
                     'userEnteredFormat.numberFormat,'
                     'userEnteredFormat.borders,'
@@ -173,25 +207,6 @@ class GoogleSheet:
                 }
             }
         ]
-
-        data = styles['sheets'][0]['data'][0]['rowData']
-
-        for row in data:
-            cells = []
-            for val in row['values']:
-                if 'userEnteredValue' in val:
-                    user_entered_value = val['userEnteredValue']
-                else:
-                    user_entered_value = {}
-
-                cells.append(
-                    {
-                        'userEnteredValue': user_entered_value,
-                        'userEnteredFormat': val['userEnteredFormat'],
-                    }
-                )
-
-            requests[0]['updateCells']['rows'].append({'values': cells})
 
         self.batch_update({'requests': requests})
 
@@ -235,9 +250,9 @@ class GoogleSheet:
     def move_rows_to_another_sheet(
         self, source_sheet_id, target_sheet_id, target_sheet_name
     ):
-        values = self.get_data(f'{target_sheet_name}!A1:A')
+        values = self.get_data(f'{target_sheet_name}!A2:A')
 
-        length = 0
+        length = 1
         if values:
             length = len(values)
 
@@ -248,14 +263,14 @@ class GoogleSheet:
                     "startRowIndex": 1,
                     "endRowIndex": 8,
                     "startColumnIndex": 0,
-                    "endColumnIndex": 8,
+                    "endColumnIndex": 9,
                 },
                 "destination": {
                     "sheetId": target_sheet_id,
                     "startRowIndex": length,
                     "endRowIndex": length + 7,
                     "startColumnIndex": 0,
-                    "endColumnIndex": 8,
+                    "endColumnIndex": 9,
                 },
                 "pasteType": "PASTE_NORMAL",
                 "pasteOrientation": "NORMAL",
@@ -271,7 +286,7 @@ class GoogleSheet:
                     "startRowIndex": 1,
                     "endRowIndex": 8,
                     "startColumnIndex": 0,
-                    "endColumnIndex": 8,
+                    "endColumnIndex": 9,
                 },
                 "shiftDimension": "ROWS",
             }
@@ -282,7 +297,4 @@ class GoogleSheet:
 
 if __name__ == '__main__':
     gs = GoogleSheet(SPREADSHEET_ID)
-    gs.move_rows_to_another_sheet(969270363, 602217051, 'Михаил Морозов АРХИВ')
-    # target_sheet_name = "Михаил Морозов"
-    # values_number = gs.get_data(f'{target_sheet_name}!A1:A')
-    # print(values_number)
+    gs.move_rows_to_another_sheet(1746370250, 402341133, 'Михаил Михаил АРХИВ')

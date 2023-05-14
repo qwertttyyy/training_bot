@@ -2,18 +2,22 @@ from telegram.ext import (
     ConversationHandler,
     CommandHandler,
     MessageHandler,
-    Filters, CallbackQueryHandler,
+    Filters,
+    CallbackQueryHandler,
 )
 
-from bot.commands.command_list import REGISTRATION
+from bot.commands.command_list import REGISTRATION_COMMAND
 from bot.exceptions import SheetCreateError, ChatDataError
 from config import TRAINER_ID, DATABASE, SPREADSHEET_ID
 from bot.utilities import (
     db_execute,
     get_students_ids,
-    except_function,
+    catch_exception,
     reply_message,
-    db_logger, message_logger, send_message, cancel_markup,
+    db_logger,
+    message_logger,
+    send_message,
+    cancel_markup,
 )
 from google_sheets.sheets import GoogleSheet, sheet_logger
 
@@ -21,7 +25,7 @@ NAME, LAST_NAME = range(2)
 KEY = 'name'
 
 
-@except_function
+@catch_exception
 def start_registration(update, _):
     students_ids = get_students_ids(DATABASE)
     chat_id = update.effective_chat.id
@@ -35,7 +39,7 @@ def start_registration(update, _):
             update,
             'Привет! Тебе нужно зарегистрироваться.'
             '\nВведи своё имя: (только имя)',
-            cancel_markup
+            cancel_markup,
         )
 
         return NAME
@@ -45,7 +49,7 @@ def start_registration(update, _):
     return ConversationHandler.END
 
 
-@except_function
+@catch_exception
 def get_name(update, context):
     name = update.message.text
     context.chat_data[KEY] = name
@@ -57,7 +61,7 @@ def get_name(update, context):
     return LAST_NAME
 
 
-@except_function
+@catch_exception
 def get_last_name(update, context):
     chat_id = update.effective_chat.id
     name = context.chat_data.get(KEY)
@@ -71,11 +75,11 @@ def get_last_name(update, context):
 
     try:
         gs = GoogleSheet(SPREADSHEET_ID)
-        sheet_id = gs.add_student_sheet(fullname)
-        archive_sheet_id = gs.add_sheet(fullname + ' АРХИВ')
+        sheet_id = gs.new_student_sheet(fullname)
+        archive_sheet_id = gs.archive_sheet(fullname + ' АРХИВ')
     except Exception:
         sheet_logger.exception(
-            f'Ошибка добавления листа для {fullname} {chat_id}'
+            f'Ошибка создания листа для {fullname} {chat_id}'
         )
         raise SheetCreateError()
 
@@ -84,9 +88,9 @@ def get_last_name(update, context):
 
     write_data = (
         '''INSERT INTO Students
-         (chat_id, name, last_name, sheet_id, archive_id)
-          VALUES (?, ?, ?, ?, ?)''',
-        (chat_id, name, last_name, sheet_id, archive_sheet_id)
+         (chat_id, name, last_name, sheet_id, archive_id, is_send_morning, is_send_evening)
+          VALUES (?, ?, ?, ?, ?, ?, ?)''',
+        (chat_id, name, last_name, sheet_id, archive_sheet_id, 0, 0),
     )
     db_execute(DATABASE, write_data)
 
@@ -105,7 +109,7 @@ def cancel(update, context):
     return ConversationHandler.END
 
 
-@except_function
+@catch_exception
 def invalid_name(update, _):
     reply_message(
         update, 'Имя и фамилия должны состоять из букв! Введи заново.'
@@ -114,7 +118,7 @@ def invalid_name(update, _):
 
 reg_handler = ConversationHandler(
     entry_points=[
-        CommandHandler(REGISTRATION, start_registration),
+        CommandHandler(REGISTRATION_COMMAND, start_registration),
     ],
     states={
         NAME: [
