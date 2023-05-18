@@ -172,6 +172,8 @@ class GoogleSheet:
 
         self.batch_update({'requests': requests})
 
+        return sheet_id
+
     def new_student_sheet(self, sheet_name):
         # создание нового листа
         sheet_id = self.add_sheet(sheet_name)
