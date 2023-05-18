@@ -1,9 +1,12 @@
+from sqlite3 import Cursor
+from time import sleep
+
 from telegram import ParseMode
 from telegram.ext import CommandHandler
 
 from bot.commands.command_list import START_COMMAND, STRAVA_LOGIN
-from bot.utilities import reply_message
-from config import LOGIN_URL
+from bot.utilities import reply_message, db_execute, get_data_db
+from config import LOGIN_URL, DATABASE
 
 
 def start(update, _):
@@ -41,14 +44,28 @@ def start(update, _):
 start_handler = CommandHandler(START_COMMAND, start)
 
 
-def strava_login(update, context):
+def strava_login(update, _):
     chat_id = update.effective_chat.id
     url = LOGIN_URL + f'?chat_id={chat_id}'
     reply_message(
         update,
-        'Чтобы авторизоваться через Strava перейдите по этой ссылке:  \n'
+        'Чтобы авторизоваться через Strava перейди по этой ссылке:  \n'
         f'{url}',
     )
+    while True:
+        tokens = get_data_db(
+            DATABASE,
+            ('SELECT tokens FROM Students WHERE chat_id = ?', (chat_id,)),
+            Cursor.fetchone,
+        )[0]
+        if tokens:
+            reply_message(
+                update,
+                'Авторизация прошла успешно. Теперь ты можешь '
+                'отправлять данные автоматически из приложения Strava',
+            )
+            break
+        sleep(1)
 
 
 strava_handler = CommandHandler(STRAVA_LOGIN, strava_login)

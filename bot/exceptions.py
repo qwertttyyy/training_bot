@@ -40,3 +40,11 @@ class GetDataFromSheetError(Exception):
 
 class ChatDataError(Exception):
     pass
+
+
+class RefreshTokenError(Exception):
+    pass
+
+
+class APIRequestError(Exception):
+    pass

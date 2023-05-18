@@ -1,3 +1,4 @@
+from http import HTTPStatus
 from sqlite3 import Cursor
 from datetime import datetime as dt
 
@@ -16,7 +17,7 @@ from telegram.ext import (
 
 from bot.commands.command_list import REPORT_COMMAND
 from bot.exceptions import ChatDataError
-from config import DATABASE, TRAINER_ID, SPREADSHEET_ID
+from config import DATABASE, TRAINER_ID, SPREADSHEET_ID, STRAVA_ACTIVITIES
 from bot.utilities import (
     get_students_ids,
     get_data_db,
@@ -28,6 +29,9 @@ from bot.utilities import (
     cancel_markup,
     db_execute,
     cancel_button,
+    get_access_data,
+    strava_api_request,
+    calculate_pace,
 )
 from google_sheets.sheets import GoogleSheet
 
@@ -70,10 +74,11 @@ def get_report(update, context):
         buttons = [
             [
                 InlineKeyboardButton(
-                    'Отправить скриншот', callback_data='screen'
+                    'Прикрепить скриншот', callback_data='screen'
                 )
             ],
             [InlineKeyboardButton('Продолжить', callback_data='strava')],
+            cancel_button
         ]
 
         reply_markup = InlineKeyboardMarkup(buttons)
@@ -101,7 +106,7 @@ def save_screenshot(update, context):
     screenshot = InputMediaPhoto(update.message.photo[-1])
     context.chat_data['screenshots'].append(screenshot)
     buttons = [
-        [InlineKeyboardButton('Добавить скриншот', callback_data='screen')],
+        [InlineKeyboardButton('Добавить ещё скриншот', callback_data='screen')],
         [InlineKeyboardButton('Продолжить', callback_data='strava')],
         cancel_button,
     ]
@@ -136,12 +141,25 @@ def strava_choice(update, context):
 
     reply_markup = InlineKeyboardMarkup(buttons)
 
+    chat_id = update.effective_chat.id
+    access_data = get_access_data(DATABASE, chat_id)
+
+    message = (
+        'Теперь ты можешь отправить данные из Strava с помощью ручного ввода, '
+        'либо отправить данные из приложения, для этого тебе нужно '
+        'авторизоваться с помощью команды /strava'
+    )
+
+    if access_data:
+        message = (
+            'Теперь ты можешь отправить данные из Strava с помощью ручного '
+            'ввода, либо отправить данные из приложения'
+        )
+
     send_message(
         context,
         update.effective_chat.id,
-        'Теперь ты можешь отправить данные из Strava с помощью ручного ввода, '
-        'либо отправить данные из приложения, для этого тебе нужно авторизоваться '
-        'с помощью команды /strava',
+        message,
         reply_markup,
     )
 
@@ -186,6 +204,69 @@ def get_avg_heart_rate(update, context):
 
 
 @catch_exception
+def bad_request_message(context, chat_id):
+    send_message(
+        context,
+        chat_id,
+        'Произошла ошибка получения данных из Strava, '
+        'попробуй ввести данные вручную ',
+    )
+    return ConversationHandler.END
+
+
+@catch_exception
+def get_strava_app(update, context):
+    chat_id = update.effective_chat.id
+
+    access_data = get_access_data(DATABASE, chat_id)
+
+    if access_data == HTTPStatus.BAD_REQUEST:
+        bad_request_message(context, chat_id)
+
+    elif access_data is None:
+        send_message(
+            context,
+            chat_id,
+            'Сначала авторизуйся через Strava с помощью команды /strava',
+        )
+        return ConversationHandler.END
+    else:
+        access_token = access_data['access_token']
+        strava_data = strava_api_request(STRAVA_ACTIVITIES, access_token)
+        if strava_data == HTTPStatus.BAD_REQUEST:
+            bad_request_message(context, chat_id)
+        else:
+            last_run = None
+            for activity in strava_data:
+                if activity['type'] == 'Run':
+                    last_run = activity
+                    break
+            if not last_run:
+                send_message(context, chat_id, 'Нужные тренировки отсутствуют')
+                return ConversationHandler.END
+            params = ('distance', 'average_heartrate', 'elapsed_time')
+            for param in params:
+                value = last_run.get(param)
+                if not value:
+                    send_message(
+                        context,
+                        chat_id,
+                        'Ошибка получение одного из параметров. '
+                        'Попробуй ввести данные вручную',
+                    )
+                    return STRAVA
+            distance = last_run['distance']
+            avg_heart_rate = last_run['average_heartrate']
+            elapsed_time = last_run['elapsed_time']
+            avg_pace = calculate_pace(elapsed_time, distance)
+            context.chat_data['distance'] = round(distance / 1000, 2)
+            context.chat_data['avg_heart_rate'] = round(avg_heart_rate)
+            context.chat_data['avg_pace'] = str(avg_pace).replace('.', ':')
+            send_strava_data(update, context)
+            return ConversationHandler.END
+
+
+@catch_exception
 def send_strava_data(update, context):
     chat_id = update.effective_chat.id
 
@@ -207,7 +288,7 @@ def send_strava_data(update, context):
     message = (
         f'Отчёт после тренировки студента {fullname}\n'
         f'Дата: {dt.now().strftime("%d.%m.%Y")}\n'
-        f'{report_data["report"]}\n'
+        f'"{report_data["report"]}"\n'
         f'Расстояние: {report_data["distance"]}\n'
         f'Средний темп: {report_data["avg_pace"]}\n'
         f'Средний пульс: {report_data["avg_heart_rate"]}'
@@ -239,17 +320,6 @@ def send_strava_data(update, context):
     send_message(context, chat_id, message)
     if screenshots:
         context.bot.send_media_group(chat_id=chat_id, media=screenshots)
-
-    return ConversationHandler.END
-
-
-@catch_exception
-def get_strava_app(update, context):
-    chat_id = update.effective_chat.id
-    context.chat_data['distance'] = '12.12'
-    context.chat_data['avg_pace'] = '2:22'
-    context.chat_data['avg_heart_rate'] = '111'
-    send_strava_data(update, context)
 
     return ConversationHandler.END
 
@@ -297,6 +367,7 @@ report_handler = ConversationHandler(
         STRAVA: [
             CallbackQueryHandler(get_strava_input, pattern=r'^strava_input$'),
             CallbackQueryHandler(get_strava_app, pattern=r'^strava_app$'),
+            CallbackQueryHandler(cancel, pattern=r'^cancel$'),
         ],
         DISTANCE: [
             MessageHandler(Filters.regex(NUMBER_REGEX), get_distance),

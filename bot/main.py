@@ -10,7 +10,7 @@ from bot.repeatings import (
     send_evening_reminders,
     clear_is_send,
 )
-from config import BOT_TOKEN
+from config import BOT_TOKEN, MOSCOW_TZ
 from bot.conversations.registration import reg_handler
 from bot.conversations.feeling import feeling_handler
 from bot.conversations.report import report_handler
@@ -24,7 +24,9 @@ def start_bot():
 
     job = updater.job_queue
     job.run_repeating(
-        send_morning_reminders, interval=timedelta(days=1), first=time(9, 0, 0)
+        send_morning_reminders,
+        interval=timedelta(days=1),
+        first=time(9, 0, 0, tzinfo=MOSCOW_TZ),
     )
     job.run_repeating(
         send_evening_reminders,
@@ -32,10 +34,14 @@ def start_bot():
         first=time(22, 0, 0),
     )
     job.run_repeating(
-        clear_is_send, interval=timedelta(days=1), first=time(3, 0, 0)
+        clear_is_send,
+        interval=timedelta(days=1),
+        first=time(3, 0, 0, tzinfo=MOSCOW_TZ),
     )
     job.run_repeating(
-        archive, interval=timedelta(weeks=1), first=time(3, 0, 0)
+        archive,
+        interval=timedelta(weeks=1),
+        first=time(3, 0, 0, tzinfo=MOSCOW_TZ),
     )
     dp.add_handler(reg_handler)
     dp.add_handler(feeling_handler)

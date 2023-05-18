@@ -84,9 +84,9 @@ def send_workout(update, context):
 
 @catch_exception
 def send_from_table(update, context):
-    chat_id = context.chat_data.get('student_id')
+    student_id = context.chat_data.get('student_id')
 
-    fullname = ' '.join(get_student_name(DATABASE, chat_id))
+    fullname = ' '.join(get_student_name(DATABASE, student_id))
     gs = GoogleSheet(SPREADSHEET_ID)
     data = gs.get_data(f'{fullname}!A:E')[1:]
 
@@ -101,7 +101,15 @@ def send_from_table(update, context):
                 training = line[4]
                 message += f'{day} {training}\n'
 
-    send_message(context, chat_id, message)
+    if not message:
+        send_message(
+            context,
+            update.effective_chat.id,
+            'Тренировки с сегодняшнего дня отсутствуют',
+        )
+        return ConversationHandler.END
+
+    send_message(context, student_id, message)
     send_message(
         context,
         TRAINER_ID,
