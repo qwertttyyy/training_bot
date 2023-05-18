@@ -15,8 +15,8 @@ from bot.exceptions import (
     GetDataFromSheetError,
     SendToGoogleSheetsError,
 )
-from config import SHEETS_LOGFILE, SPREADSHEET_ID
-from log.logs_config import setup_logger
+from bot.config import SHEETS_LOGFILE, SPREADSHEET_ID
+from bot.log.logs_config import setup_logger
 
 sheet_logger = setup_logger('SHEET_LOGGER', SHEETS_LOGFILE)
 

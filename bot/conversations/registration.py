@@ -8,7 +8,7 @@ from telegram.ext import (
 
 from bot.commands.command_list import REGISTRATION_COMMAND
 from bot.exceptions import SheetCreateError, ChatDataError
-from config import TRAINER_ID, DATABASE, SPREADSHEET_ID
+from bot.config import TRAINER_ID, DATABASE, SPREADSHEET_ID
 from bot.utilities import (
     db_execute,
     get_students_ids,
@@ -19,7 +19,7 @@ from bot.utilities import (
     send_message,
     cancel_markup,
 )
-from google_sheets.sheets import GoogleSheet, sheet_logger
+from bot.google_sheets.sheets import GoogleSheet, sheet_logger
 
 NAME, LAST_NAME = range(2)
 KEY = 'name'

@@ -1,8 +1,8 @@
 from time import sleep
 
 from bot.utilities import get_data_db, db_execute
-from config import DATABASE, SPREADSHEET_ID
-from google_sheets.sheets import GoogleSheet
+from bot.config import DATABASE, SPREADSHEET_ID
+from bot.google_sheets.sheets import GoogleSheet
 
 
 def archive(_):

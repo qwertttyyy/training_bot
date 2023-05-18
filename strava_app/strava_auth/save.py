@@ -2,7 +2,7 @@ import json
 
 from social_django.models import UserSocialAuth
 
-from config import DATABASE
+from bot.config import DATABASE
 from bot.utilities import db_execute
 
 

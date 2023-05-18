@@ -1,4 +1,4 @@
-from config import DATABASE
+from bot.config import DATABASE
 from bot.utilities import db_execute
 
 CREATE_STUDENTS = (

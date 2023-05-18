@@ -20,9 +20,9 @@ from bot.utilities import (
     db_execute,
 )
 from bot.commands.command_list import FEELING_COMMAND
-from config import TRAINER_ID, DATABASE, SPREADSHEET_ID
+from bot.config import TRAINER_ID, DATABASE, SPREADSHEET_ID
 from bot.utilities import get_students_ids
-from google_sheets.sheets import GoogleSheet
+from bot.google_sheets.sheets import GoogleSheet
 
 FEEl, SLEEP, PULSE = range(3)
 DATA_KEYS = ['feel', 'sleep', 'pulse']

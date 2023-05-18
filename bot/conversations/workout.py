@@ -10,7 +10,7 @@ from telegram.ext import (
 )
 
 from bot.commands.command_list import SEND_WORKOUT_COMMAND
-from config import (
+from bot.config import (
     TRAINER_ID,
     DATABASE,
     SPREADSHEET_ID,
@@ -22,7 +22,7 @@ from bot.utilities import (
     reply_message,
     catch_exception,
 )
-from google_sheets.sheets import GoogleSheet
+from bot.google_sheets.sheets import GoogleSheet
 
 START = 0
 

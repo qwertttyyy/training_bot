@@ -10,7 +10,7 @@ from bot.repeatings import (
     send_evening_reminders,
     clear_is_send,
 )
-from config import BOT_TOKEN, MOSCOW_TZ
+from bot.config import BOT_TOKEN, MOSCOW_TZ
 from bot.conversations.registration import reg_handler
 from bot.conversations.feeling import feeling_handler
 from bot.conversations.report import report_handler

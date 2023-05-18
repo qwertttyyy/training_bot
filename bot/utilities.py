@@ -20,7 +20,7 @@ from bot.exceptions import (
     RefreshTokenError,
     APIRequestError,
 )
-from config import (
+from bot.config import (
     DB_LOGFILE,
     MESSAGES_LOGFILE,
     UNKNOWN_LOGFILE,
@@ -29,7 +29,7 @@ from config import (
     DATABASE,
     STRAVA_LOGGER,
 )
-from log.logs_config import setup_logger
+from bot.log.logs_config import setup_logger
 
 db_logger = setup_logger('DATABASE_LOGGER', DB_LOGFILE)
 message_logger = setup_logger('MESSAGE_LOGGER', MESSAGES_LOGFILE)

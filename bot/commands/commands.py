@@ -5,8 +5,8 @@ from telegram import ParseMode
 from telegram.ext import CommandHandler
 
 from bot.commands.command_list import START_COMMAND, STRAVA_LOGIN
-from bot.utilities import reply_message, db_execute, get_data_db
-from config import LOGIN_URL, DATABASE
+from bot.utilities import reply_message, get_data_db
+from bot.config import LOGIN_URL, DATABASE
 
 
 def start(update, _):

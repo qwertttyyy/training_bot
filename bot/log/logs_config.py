@@ -2,7 +2,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 import os
 
-from config import LOGS_PATH, MAX_LOG_FILE_SIZE
+from bot.config import LOGS_PATH, MAX_LOG_FILE_SIZE
 
 
 def setup_logger(name: str, logfile: str):

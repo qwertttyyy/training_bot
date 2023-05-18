@@ -17,7 +17,7 @@ from telegram.ext import (
 
 from bot.commands.command_list import REPORT_COMMAND
 from bot.exceptions import ChatDataError
-from config import DATABASE, TRAINER_ID, SPREADSHEET_ID, STRAVA_ACTIVITIES
+from bot.config import DATABASE, TRAINER_ID, SPREADSHEET_ID, STRAVA_ACTIVITIES
 from bot.utilities import (
     get_students_ids,
     get_data_db,
@@ -33,7 +33,7 @@ from bot.utilities import (
     strava_api_request,
     calculate_pace,
 )
-from google_sheets.sheets import GoogleSheet
+from bot.google_sheets.sheets import GoogleSheet
 
 REPORT, SCREENSHOT, STRAVA, DISTANCE, AVG_TEMP, AVG_HEART_RATE = range(6)
 NUMBER_REGEX = r'^\d{1,2}([.,]\d{1,2})?$'
