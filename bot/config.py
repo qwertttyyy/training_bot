@@ -1,11 +1,8 @@
 import os
 
 import pytz
-from dotenv import load_dotenv
 
 PATH = os.path.dirname(os.path.abspath(__file__))
-
-load_dotenv()
 
 TRAINER_ID = int(os.getenv('TRAINER_ID'))
 BOT_TOKEN = os.getenv('BOT_TOKEN')
@@ -13,7 +10,14 @@ SPREADSHEET_ID = os.getenv('SPREADSHEET_ID')
 SOCIAL_AUTH_STRAVA_KEY = os.getenv('SOCIAL_AUTH_STRAVA_KEY')
 SOCIAL_AUTH_STRAVA_SECRET = os.getenv('SOCIAL_AUTH_STRAVA_SECRET')
 
-DATABASE = os.path.join(PATH, 'database/training.db')
+DATABASE = {
+    'user': os.getenv('POSTGRES_USER'),
+    'password': os.getenv('POSTGRES_PASSWORD'),
+    'host': os.getenv('DB_HOST'),
+    'port': os.getenv('DB_PORT'),
+    'database': os.getenv('POSTGRES_DB')
+}
+
 LOGS_PATH = os.path.join(PATH, 'log/logs')
 
 DB_LOGFILE = 'database.log'

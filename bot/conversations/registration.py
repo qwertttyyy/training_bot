@@ -73,6 +73,8 @@ def get_last_name(update, context):
     last_name = update.message.text
     fullname = f'{name} {last_name}'
 
+    send_message(context, chat_id, 'Пара секунд...')
+
     try:
         gs = GoogleSheet(SPREADSHEET_ID)
         sheet_id = gs.new_student_sheet(fullname)
@@ -87,9 +89,9 @@ def get_last_name(update, context):
         del context.chat_data[KEY]
 
     write_data = (
-        '''INSERT INTO Students
+        '''INSERT INTO students
          (chat_id, name, last_name, sheet_id, archive_id, is_send_morning, is_send_evening)
-          VALUES (?, ?, ?, ?, ?, ?, ?)''',
+          VALUES (%s, %s, %s, %s, %s, %s, %s)''',
         (chat_id, name, last_name, sheet_id, archive_sheet_id, 0, 0),
     )
     db_execute(DATABASE, write_data)

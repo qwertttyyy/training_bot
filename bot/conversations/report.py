@@ -1,7 +1,7 @@
 from http import HTTPStatus
-from sqlite3 import Cursor
 from datetime import datetime as dt
 
+from psycopg2._psycopg import cursor
 from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -271,10 +271,10 @@ def send_strava_data(update, context):
     chat_id = update.effective_chat.id
 
     get_name = (
-        'SELECT name, last_name FROM Students WHERE chat_id = ?',
+        'SELECT name, last_name FROM Students WHERE chat_id = %s',
         (update.effective_chat.id,),
     )
-    name = get_data_db(DATABASE, get_name, method=Cursor.fetchone)
+    name = get_data_db(DATABASE, get_name, method=cursor.fetchone)
     fullname = f'{name[0]} {name[1]}'
 
     report_data = {}
@@ -310,7 +310,7 @@ def send_strava_data(update, context):
     db_execute(
         DATABASE,
         (
-            'UPDATE Students SET is_send_evening = 1 WHERE chat_id = ?',
+            'UPDATE students SET is_send_evening = 1 WHERE chat_id = %s',
             (chat_id,),
         ),
     )

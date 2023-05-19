@@ -2,15 +2,15 @@ from bot.config import DATABASE
 from bot.utilities import db_execute
 
 CREATE_STUDENTS = (
-    '''CREATE TABLE IF NOT EXISTS Students (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                chat_id INTEGER UNIQUE NOT NULL,
+    '''CREATE TABLE IF NOT EXISTS students (
+                id SERIAL PRIMARY KEY,
+                chat_id BIGINT UNIQUE NOT NULL,
                 name TEXT NOT NULL,
                 last_name TEXT NOT NULL,
-                sheet_id INTEGER,
-                archive_id INTEGER,
-                is_send_morning INTEGER NOT NULL,
-                is_send_evening INTEGER NOT NULL,
+                sheet_id BIGINT,
+                archive_id BIGINT,
+                is_send_morning INT NOT NULL,
+                is_send_evening INT NOT NULL,
                 tokens TEXT
                 )''',
 )

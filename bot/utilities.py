@@ -1,14 +1,23 @@
 import json
 import time
-import sqlite3
 from http import HTTPStatus
-from sqlite3 import Cursor
 from typing import Callable
 
+import psycopg2
 import requests
+from psycopg2._psycopg import cursor
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ConversationHandler
 
+from bot.config import (
+    DB_LOGFILE,
+    MESSAGES_LOGFILE,
+    UNKNOWN_LOGFILE,
+    SOCIAL_AUTH_STRAVA_KEY,
+    SOCIAL_AUTH_STRAVA_SECRET,
+    DATABASE,
+    STRAVA_LOGGER,
+)
 from bot.exceptions import (
     DatabaseExecutionError,
     SendToGoogleSheetsError,
@@ -19,15 +28,6 @@ from bot.exceptions import (
     ChatDataError,
     RefreshTokenError,
     APIRequestError,
-)
-from bot.config import (
-    DB_LOGFILE,
-    MESSAGES_LOGFILE,
-    UNKNOWN_LOGFILE,
-    SOCIAL_AUTH_STRAVA_KEY,
-    SOCIAL_AUTH_STRAVA_SECRET,
-    DATABASE,
-    STRAVA_LOGGER,
 )
 from bot.log.logs_config import setup_logger
 
@@ -50,57 +50,55 @@ cancel_button = [InlineKeyboardButton('Отменить', callback_data='cancel'
 cancel_markup = InlineKeyboardMarkup([cancel_button])
 
 
-def db_execute(database: str, execution: tuple[str] | tuple[str, tuple]):
+def db_execute(database: dict, execution: tuple[str] | tuple[str, tuple]):
     try:
-        conn = sqlite3.connect(database)
-        cursor = conn.cursor()
-        cursor.execute(*execution)
-        conn.commit()
-        cursor.close()
-        conn.close()
+        with psycopg2.connect(**database) as conn:
+            with conn.cursor() as cur:
+                cur.execute(*execution)
+
         db_logger.info(f'Операция с бд: {execution}')
+
     except Exception:
         db_logger.exception(f'Ошибка операции с базой {execution}')
         raise DatabaseExecutionError()
 
 
 def get_data_db(
-    database: str, execution: tuple, method: Callable[[Cursor], list] = None
+        database: dict, execution: tuple,
+        method: Callable[[cursor], list] = None
 ):
     try:
-        conn = sqlite3.connect(database)
-        cursor = conn.cursor()
-        cursor.execute(*execution)
+        with psycopg2.connect(**database) as conn:
+            with conn.cursor() as cur:
+                cur.execute(*execution)
 
-        if method is Cursor.fetchone:
-            result = cursor.fetchone()
-        else:
-            result = cursor.fetchall()
+                if method is cursor.fetchone:
+                    result = cur.fetchone()
+                else:
+                    result = cur.fetchall()
         db_logger.info(f'Получение данных {result} из бд')
-        cursor.close()
-        conn.close()
-
         return result
+
     except Exception:
         db_logger.exception(f'Ошибка получения данных {execution} из базы')
         raise DatabaseGetDataError()
 
 
-def get_students_ids(database: str):
-    execution = ('SELECT chat_id FROM Students',)
+def get_students_ids(database: dict):
+    execution = ('SELECT chat_id FROM students',)
     students_ids = tuple(
         student[0]
-        for student in get_data_db(database, execution, method=Cursor.fetchall)
+        for student in get_data_db(database, execution, method=cursor.fetchall)
     )
     return students_ids
 
 
-def get_student_name(database: str, chat_id) -> list[str]:
+def get_student_name(database: dict, chat_id) -> list[str]:
     get_name = (
-        'SELECT name, last_name FROM Students WHERE chat_id = ?',
+        'SELECT name, last_name FROM students WHERE chat_id = %s',
         (chat_id,),
     )
-    name = get_data_db(database, get_name, method=Cursor.fetchone)
+    name = get_data_db(database, get_name, method=cursor.fetchone)
 
     return name
 
@@ -175,7 +173,7 @@ def refresh_token(extra_data, chat_id):
                 db_execute(
                     DATABASE,
                     (
-                        'UPDATE Students SET tokens = ? WHERE chat_id = ?',
+                        'UPDATE Students SET tokens = %s WHERE chat_id = %s',
                         (str_data, chat_id),
                     ),
                 )
@@ -199,13 +197,12 @@ def refresh_token(extra_data, chat_id):
 def get_access_data(database, chat_id):
     access_data = get_data_db(
         database,
-        ('SELECT tokens FROM Students WHERE chat_id = ?', (chat_id,)),
-        Cursor.fetchone,
-    )[0]
+        ('SELECT tokens FROM Students WHERE chat_id = %s', (chat_id,)),
+        cursor.fetchone,
+    )
 
-    if access_data:
-        a = access_data
-        json_data = json.loads(access_data)
+    if access_data and access_data[0]:
+        json_data = json.loads(access_data[0])
         refreshed_data = refresh_token(json_data, chat_id)
         return refreshed_data
 

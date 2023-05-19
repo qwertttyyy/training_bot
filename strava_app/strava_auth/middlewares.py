@@ -1,7 +1,5 @@
 from django.shortcuts import redirect
 
-url = 'http://127.0.0.1:8000/login/strava/?chat_id=123456'
-
 
 class StravaLoginMiddleware:
     def __init__(self, get_response):

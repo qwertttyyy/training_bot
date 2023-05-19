@@ -106,7 +106,7 @@ def get_puls(update, context):
     db_execute(
         DATABASE,
         (
-            'UPDATE Students SET is_send_morning = 1 WHERE chat_id = ?',
+            'UPDATE students SET is_send_morning = 1 WHERE chat_id = %s',
             (chat_id,),
         ),
     )

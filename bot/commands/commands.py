@@ -1,6 +1,6 @@
-from sqlite3 import Cursor
 from time import sleep
 
+from psycopg2._psycopg import cursor
 from telegram import ParseMode
 from telegram.ext import CommandHandler
 
@@ -55,8 +55,8 @@ def strava_login(update, _):
     while True:
         tokens = get_data_db(
             DATABASE,
-            ('SELECT tokens FROM Students WHERE chat_id = ?', (chat_id,)),
-            Cursor.fetchone,
+            ('SELECT tokens FROM students WHERE chat_id = %s', (chat_id,)),
+            cursor.fetchone,
         )[0]
         if tokens:
             reply_message(

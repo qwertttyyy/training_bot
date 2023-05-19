@@ -1,9 +1,9 @@
 import json
 
+import psycopg2
 from social_django.models import UserSocialAuth
 
-from bot.config import DATABASE
-from bot.utilities import db_execute
+from strava_app.settings import DATABASE
 
 
 def save_strava_token(request, backend, user, *args, **kwargs):
@@ -13,12 +13,13 @@ def save_strava_token(request, backend, user, *args, **kwargs):
         )
         tokens = json.dumps(user_social_auth.extra_data)
         chat_id = request.session.get('chat_id')
-        db_execute(
-            DATABASE,
-            (
-                'UPDATE Students SET tokens = ? WHERE chat_id = ?',
-                (tokens, chat_id),
-            ),
+        execution = (
+            'UPDATE students SET tokens = %s WHERE chat_id = %s',
+            (tokens, chat_id),
         )
+
+        with psycopg2.connect(**DATABASE) as conn:
+            with conn.cursor() as cur:
+                cur.execute(*execution)
 
         del request.session['chat_id']

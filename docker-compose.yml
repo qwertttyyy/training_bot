@@ -1,0 +1,28 @@
+version: '3'
+
+volumes:
+  bot_pg_data:
+
+
+services:
+  db:
+    image: postgres:13.10
+    env_file: .env
+    volumes:
+      - bot_pg_data:/var/lib/postgresql/data
+
+  bot:
+    build: ./bot/
+    env_file: .env
+    depends_on:
+      - db
+
+  strava_app:
+    build: ./strava_app/
+    env_file: .env
+
+    depends_on:
+      - db
+
+    ports:
+      - 8000:8000
