@@ -1,21 +1,21 @@
-import os
 import json
-from datetime import timedelta
+import os
 from datetime import datetime as dt
+from datetime import timedelta
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
-from bot.exceptions import (
-    GoogleSheetsAPIError,
-    BatchUpdateError,
-    WriteDataToSheetError,
-    GetDataFromSheetError,
-    SendToGoogleSheetsError,
-)
 from bot.config import SHEETS_LOGFILE, SPREADSHEET_ID
+from bot.exceptions import (
+    BatchUpdateError,
+    GetDataFromSheetError,
+    GoogleSheetsAPIError,
+    SendToGoogleSheetsError,
+    WriteDataToSheetError,
+)
 from bot.log.logs_config import setup_logger
 
 sheet_logger = setup_logger('SHEET_LOGGER', SHEETS_LOGFILE)
@@ -221,6 +221,7 @@ class GoogleSheet:
             today += timedelta(days=1)
         sheet_range = sheet_name + '!A2:A15'
         two_weeks = [[date] for date in two_weeks]
+
         self.add_data(sheet_range, two_weeks)
 
         sheet_logger.info(f'Создан лист {sheet_name} {sheet_id=}')

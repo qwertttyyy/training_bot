@@ -1,5 +1,5 @@
-from http import HTTPStatus
 from datetime import datetime as dt
+from http import HTTPStatus
 
 from psycopg2._psycopg import cursor
 from telegram import (
@@ -8,32 +8,32 @@ from telegram import (
     InputMediaPhoto,
 )
 from telegram.ext import (
-    ConversationHandler,
+    CallbackQueryHandler,
     CommandHandler,
+    ConversationHandler,
     Filters,
     MessageHandler,
-    CallbackQueryHandler,
 )
 
 from bot.commands.command_list import REPORT_COMMAND
+from bot.config import DATABASE, SPREADSHEET_ID, STRAVA_ACTIVITIES, TRAINER_ID
 from bot.exceptions import ChatDataError
-from bot.config import DATABASE, TRAINER_ID, SPREADSHEET_ID, STRAVA_ACTIVITIES
-from bot.utilities import (
-    get_students_ids,
-    get_data_db,
-    send_message,
-    reply_message,
-    catch_exception,
-    message_logger,
-    clean_chat_data,
-    cancel_markup,
-    db_execute,
-    cancel_button,
-    get_access_data,
-    strava_api_request,
-    calculate_pace,
-)
 from bot.google_sheets.sheets import GoogleSheet
+from bot.utilities import (
+    calculate_pace,
+    cancel_button,
+    cancel_markup,
+    catch_exception,
+    clean_chat_data,
+    db_execute,
+    get_access_data,
+    get_data_db,
+    get_students_ids,
+    message_logger,
+    reply_message,
+    send_message,
+    strava_api_request,
+)
 
 REPORT, SCREENSHOT, STRAVA, DISTANCE, AVG_TEMP, AVG_HEART_RATE = range(6)
 NUMBER_REGEX = r'^\d{1,2}([.,]\d{1,2})?$'
@@ -78,7 +78,7 @@ def get_report(update, context):
                 )
             ],
             [InlineKeyboardButton('Продолжить', callback_data='strava')],
-            cancel_button
+            cancel_button,
         ]
 
         reply_markup = InlineKeyboardMarkup(buttons)
@@ -106,7 +106,11 @@ def save_screenshot(update, context):
     screenshot = InputMediaPhoto(update.message.photo[-1])
     context.chat_data['screenshots'].append(screenshot)
     buttons = [
-        [InlineKeyboardButton('Добавить ещё скриншот', callback_data='screen')],
+        [
+            InlineKeyboardButton(
+                'Добавить ещё скриншот', callback_data='screen'
+            )
+        ],
         [InlineKeyboardButton('Продолжить', callback_data='strava')],
         cancel_button,
     ]

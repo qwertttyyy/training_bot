@@ -7,6 +7,4 @@ bot/log/logs/*.log
 bot/database/training.db
 strava_app/db.sqlite3
 
-
 log/logs/*.log
-database/training.db

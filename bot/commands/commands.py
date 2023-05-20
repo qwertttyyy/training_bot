@@ -5,8 +5,8 @@ from telegram import ParseMode
 from telegram.ext import CommandHandler
 
 from bot.commands.command_list import START_COMMAND, STRAVA_LOGIN
-from bot.utilities import reply_message, get_data_db
-from bot.config import LOGIN_URL, DATABASE
+from bot.config import DATABASE, LOGIN_URL
+from bot.utilities import get_data_db, reply_message
 
 
 def start(update, _):
@@ -14,19 +14,23 @@ def start(update, _):
         {'command': '/start', 'description': 'информация о командах.'},
         {
             'command': '/registration',
-            'description': 'команда для регистрации, для того, чтобы отправлять тренеру информацию о тебе',
+            'description': 'команда для регистрации, для того, '
+            'чтобы отправлять тренеру информацию о тебе',
         },
         {
             'command': '/feeling',
-            'description': 'команда для отправки утреннего отчёта о своём самочувствие',
+            'description': 'команда для отправки утреннего '
+            'отчёта о своём самочувствие',
         },
         {
             'command': '/report',
-            'description': 'команда для отправки отчёта после тренировки, можно приложить скриншот',
+            'description': 'команда для отправки отчёта после '
+            'тренировки, можно приложить скриншот',
         },
         {
             'command': '/sendworkout',
-            'description': 'команда, доступная только тренеру, служит для отправки тренировок спортсменам.',
+            'description': 'команда, доступная только тренеру, '
+            'служит для отправки тренировок спортсменам.',
         },
     ]
 

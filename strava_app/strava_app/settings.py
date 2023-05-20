@@ -1,6 +1,7 @@
 import os
 import sys
 from pathlib import Path
+
 # from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -85,7 +86,7 @@ DATABASE = {
     'password': os.getenv('POSTGRES_PASSWORD'),
     'host': os.getenv('DB_HOST'),
     'port': os.getenv('DB_PORT'),
-    'database': os.getenv('POSTGRES_DB')
+    'database': os.getenv('POSTGRES_DB'),
 }
 
 # Password validation

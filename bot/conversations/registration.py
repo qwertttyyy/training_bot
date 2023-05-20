@@ -1,25 +1,25 @@
 from telegram.ext import (
-    ConversationHandler,
-    CommandHandler,
-    MessageHandler,
-    Filters,
     CallbackQueryHandler,
+    CommandHandler,
+    ConversationHandler,
+    Filters,
+    MessageHandler,
 )
 
 from bot.commands.command_list import REGISTRATION_COMMAND
-from bot.exceptions import SheetCreateError, ChatDataError
-from bot.config import TRAINER_ID, DATABASE, SPREADSHEET_ID
-from bot.utilities import (
-    db_execute,
-    get_students_ids,
-    catch_exception,
-    reply_message,
-    db_logger,
-    message_logger,
-    send_message,
-    cancel_markup,
-)
+from bot.config import DATABASE, SPREADSHEET_ID, TRAINER_ID
+from bot.exceptions import ChatDataError, SheetCreateError
 from bot.google_sheets.sheets import GoogleSheet, sheet_logger
+from bot.utilities import (
+    cancel_markup,
+    catch_exception,
+    db_execute,
+    db_logger,
+    get_students_ids,
+    message_logger,
+    reply_message,
+    send_message,
+)
 
 NAME, LAST_NAME = range(2)
 KEY = 'name'

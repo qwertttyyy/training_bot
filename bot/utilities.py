@@ -10,24 +10,24 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ConversationHandler
 
 from bot.config import (
+    DATABASE,
     DB_LOGFILE,
     MESSAGES_LOGFILE,
-    UNKNOWN_LOGFILE,
     SOCIAL_AUTH_STRAVA_KEY,
     SOCIAL_AUTH_STRAVA_SECRET,
-    DATABASE,
     STRAVA_LOGGER,
+    UNKNOWN_LOGFILE,
 )
 from bot.exceptions import (
-    DatabaseExecutionError,
-    SendToGoogleSheetsError,
-    SendMessageError,
-    ReplyMessageError,
-    DatabaseGetDataError,
-    SheetCreateError,
-    ChatDataError,
-    RefreshTokenError,
     APIRequestError,
+    ChatDataError,
+    DatabaseExecutionError,
+    DatabaseGetDataError,
+    RefreshTokenError,
+    ReplyMessageError,
+    SendMessageError,
+    SendToGoogleSheetsError,
+    SheetCreateError,
 )
 from bot.log.logs_config import setup_logger
 
@@ -64,8 +64,7 @@ def db_execute(database: dict, execution: tuple[str] | tuple[str, tuple]):
 
 
 def get_data_db(
-        database: dict, execution: tuple,
-        method: Callable[[cursor], list] = None
+    database: dict, execution: tuple, method: Callable[[cursor], list] = None
 ):
     try:
         with psycopg2.connect(**database) as conn:
@@ -182,7 +181,8 @@ def refresh_token(extra_data, chat_id):
                 )
                 return extra_data
             strava_logger.error(
-                f'Статус запроса не ОК при обновлении токена для {chat_id} - {response.json()}'
+                f'Статус запроса не ОК при обновлении '
+                f'токена для {chat_id} - {response.json()}'
             )
             return HTTPStatus.BAD_REQUEST
         except Exception:

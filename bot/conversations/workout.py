@@ -2,27 +2,23 @@ from datetime import datetime as dt
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
-    ConversationHandler,
-    CommandHandler,
     CallbackQueryHandler,
-    MessageHandler,
+    CommandHandler,
+    ConversationHandler,
     Filters,
+    MessageHandler,
 )
 
 from bot.commands.command_list import SEND_WORKOUT_COMMAND
-from bot.config import (
-    TRAINER_ID,
-    DATABASE,
-    SPREADSHEET_ID,
-)
+from bot.config import DATABASE, SPREADSHEET_ID, TRAINER_ID
+from bot.google_sheets.sheets import GoogleSheet
 from bot.utilities import (
+    catch_exception,
     get_data_db,
     get_student_name,
-    send_message,
     reply_message,
-    catch_exception,
+    send_message,
 )
-from bot.google_sheets.sheets import GoogleSheet
 
 START = 0
 

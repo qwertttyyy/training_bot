@@ -1,6 +1,6 @@
 import logging
-from logging.handlers import RotatingFileHandler
 import os
+from logging.handlers import RotatingFileHandler
 
 from bot.config import LOGS_PATH, MAX_LOG_FILE_SIZE
 

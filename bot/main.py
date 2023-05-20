@@ -1,20 +1,20 @@
-from datetime import timedelta, time
+from datetime import time, timedelta
 
 from telegram import Bot
 from telegram.ext import Updater
 
 from bot.commands.commands import start_handler, strava_handler
-from bot.repeatings import (
-    send_morning_reminders,
-    archive,
-    send_evening_reminders,
-    clear_is_send,
-)
 from bot.config import BOT_TOKEN, MOSCOW_TZ
-from bot.conversations.registration import reg_handler
 from bot.conversations.feeling import feeling_handler
+from bot.conversations.registration import reg_handler
 from bot.conversations.report import report_handler
 from bot.conversations.workout import workout_handler
+from bot.repeatings import (
+    archive,
+    clear_is_send,
+    send_evening_reminders,
+    send_morning_reminders,
+)
 
 
 def start_bot():
