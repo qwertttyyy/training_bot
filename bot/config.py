@@ -28,10 +28,11 @@ UNKNOWN_LOGFILE = 'unknown.log'
 
 MAX_LOG_FILE_SIZE = 50 * 1024
 
-DOMAIN = '89.191.226.140'
-TEST_DOMAIN = '127.0.0.1'
 PORT = 8000
-LOGIN_URL = f'http://{DOMAIN}:{PORT}/login/strava/'
+DOMAIN = 'trainingbot-web.ddns.net'
+TEST_DOMAIN = '127.0.0.1'
+LOGIN_URL = f'https://{DOMAIN}/login/strava/'
 STRAVA_ACTIVITIES = 'https://www.strava.com/api/v3/athlete/activities'
 
 MOSCOW_TZ = pytz.timezone('Europe/Moscow')
+DATE_FORMAT = '%d.%m.%Y'

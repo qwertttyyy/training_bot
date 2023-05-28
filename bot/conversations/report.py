@@ -16,7 +16,13 @@ from telegram.ext import (
 )
 
 from bot.commands.command_list import REPORT_COMMAND
-from bot.config import DATABASE, SPREADSHEET_ID, STRAVA_ACTIVITIES, TRAINER_ID
+from bot.config import (
+    DATABASE,
+    SPREADSHEET_ID,
+    STRAVA_ACTIVITIES,
+    TRAINER_ID,
+    DATE_FORMAT,
+)
 from bot.exceptions import ChatDataError
 from bot.google_sheets.sheets import GoogleSheet
 from bot.utilities import (
@@ -37,7 +43,14 @@ from bot.utilities import (
 
 REPORT, SCREENSHOT, STRAVA, DISTANCE, AVG_TEMP, AVG_HEART_RATE = range(6)
 NUMBER_REGEX = r'^\d{1,2}([.,]\d{1,2})?$'
-DATA_KEYS = ['distance', 'avg_pace', 'avg_heart_rate', 'report', 'screenshots']
+DATA_KEYS = [
+    'distance',
+    'avg_pace',
+    'avg_heart_rate',
+    'report',
+    'date',
+    'screenshots',
+]
 
 
 @catch_exception
@@ -203,6 +216,7 @@ def get_avg_pace(update, context):
 @catch_exception
 def get_avg_heart_rate(update, context):
     context.chat_data['avg_heart_rate'] = update.message.text
+    context.chat_data['date'] = dt.now().strftime(DATE_FORMAT)
     send_strava_data(update, context)
     return ConversationHandler.END
 
@@ -262,10 +276,12 @@ def get_strava_app(update, context):
             distance = last_run['distance']
             avg_heart_rate = last_run['average_heartrate']
             elapsed_time = last_run['elapsed_time']
+            date = dt.strptime(last_run['start_date'], '%Y-%m-%dT%H:%M:%SZ')
             avg_pace = calculate_pace(elapsed_time, distance)
             context.chat_data['distance'] = round(distance / 1000, 2)
             context.chat_data['avg_heart_rate'] = round(avg_heart_rate)
             context.chat_data['avg_pace'] = str(avg_pace).replace('.', ':')
+            context.chat_data['date'] = dt.strftime(date, DATE_FORMAT)
             send_strava_data(update, context)
             return ConversationHandler.END
 
@@ -291,7 +307,7 @@ def send_strava_data(update, context):
 
     message = (
         f'Отчёт после тренировки студента {fullname}\n'
-        f'Дата: {dt.now().strftime("%d.%m.%Y")}\n'
+        f'Дата: {report_data["date"]}\n'
         f'"{report_data["report"]}"\n'
         f'Расстояние: {report_data["distance"]}\n'
         f'Средний темп: {report_data["avg_pace"]}\n'

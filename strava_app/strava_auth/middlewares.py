@@ -1,7 +1,7 @@
 from django.shortcuts import redirect
 
 
-class StravaLoginMiddleware:
+class StravaMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -12,18 +12,13 @@ class StravaLoginMiddleware:
             and 'strava' in request.path
         ):
             return redirect('strava:forbidden')
-        response = self.get_response(request)
-        request.session['chat_id'] = request.GET.get('chat_id')
-        return response
 
-
-class StravaCompleteMiddleware:
-    def __init__(self, get_response):
-        self.get_response = get_response
-
-    def __call__(self, request):
         error = request.GET.get('error')
+
         if request.path == '/complete/strava/' and error == 'access_denied':
             return redirect('strava:canceled')
+
         response = self.get_response(request)
+        request.session['chat_id'] = request.GET.get('chat_id')
+
         return response

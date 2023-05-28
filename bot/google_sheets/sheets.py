@@ -8,7 +8,7 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
-from bot.config import SHEETS_LOGFILE, SPREADSHEET_ID
+from bot.config import SHEETS_LOGFILE, SPREADSHEET_ID, DATE_FORMAT
 from bot.exceptions import (
     BatchUpdateError,
     GetDataFromSheetError,
@@ -217,7 +217,7 @@ class GoogleSheet:
         two_weeks = []
 
         while today < last_day:
-            two_weeks.append(today.strftime('%d.%m.%Y'))
+            two_weeks.append(today.strftime(DATE_FORMAT))
             today += timedelta(days=1)
         sheet_range = sheet_name + '!A2:A15'
         two_weeks = [[date] for date in two_weeks]
@@ -239,7 +239,7 @@ class GoogleSheet:
 
                 if date:
                     date = dt.strptime(
-                        date[0].split(', ')[1], '%d.%m.%Y'
+                        date[0].split(', ')[1], DATE_FORMAT
                     ).date()
                     if date == today:
                         sheet_data = f'{name}!{first_column}{column_index + 1}'

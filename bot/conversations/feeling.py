@@ -9,7 +9,7 @@ from telegram.ext import (
 )
 
 from bot.commands.command_list import FEELING_COMMAND
-from bot.config import DATABASE, SPREADSHEET_ID, TRAINER_ID
+from bot.config import DATABASE, SPREADSHEET_ID, TRAINER_ID, DATE_FORMAT
 from bot.exceptions import ChatDataError
 from bot.google_sheets.sheets import GoogleSheet
 from bot.utilities import (
@@ -88,7 +88,7 @@ def get_puls(update, context):
 
     message = (
         f'Утренний отчёт студента {fullname}:\n'
-        f'Дата: {dt.now().strftime("%d.%m.%Y")}\n'
+        f'Дата: {dt.now().strftime(DATE_FORMAT)}\n'
         f'Оценка самочувствия: {feelings[0]}\n'
         f'Количество часов сна: {feelings[1]}\n'
         f'Пульс: {feelings[2]}'

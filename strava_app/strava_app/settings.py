@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 # from dotenv import load_dotenv
+# load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -19,7 +20,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['89.191.226.140', '127.0.0.1', 'localhost', '0.0.0.0']
+ALLOWED_HOSTS = ['194.35.116.146', '127.0.0.1', 'localhost', '0.0.0.0', 'trainingbot-web.ddns.net']
 
 
 # Application definition
@@ -42,8 +43,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "strava_auth.middlewares.StravaLoginMiddleware",
-    "strava_auth.middlewares.StravaCompleteMiddleware",
+    "strava_auth.middlewares.StravaMiddleware",
+    # "strava_auth.middlewares.StravaCompleteMiddleware",
 ]
 
 ROOT_URLCONF = "strava_app.urls"

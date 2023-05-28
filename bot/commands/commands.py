@@ -1,12 +1,9 @@
-from time import sleep
-
-from psycopg2._psycopg import cursor
 from telegram import ParseMode
 from telegram.ext import CommandHandler
 
 from bot.commands.command_list import START_COMMAND, STRAVA_LOGIN
-from bot.config import DATABASE, LOGIN_URL
-from bot.utilities import get_data_db, reply_message
+from bot.config import LOGIN_URL
+from bot.utilities import reply_message
 
 
 def start(update, _):
@@ -56,20 +53,6 @@ def strava_login(update, _):
         'Чтобы авторизоваться через Strava перейди по этой ссылке:  \n'
         f'{url}',
     )
-    while True:
-        tokens = get_data_db(
-            DATABASE,
-            ('SELECT tokens FROM students WHERE chat_id = %s', (chat_id,)),
-            cursor.fetchone,
-        )[0]
-        if tokens:
-            reply_message(
-                update,
-                'Авторизация прошла успешно. Теперь ты можешь '
-                'отправлять данные автоматически из приложения Strava',
-            )
-            break
-        sleep(1)
 
 
 strava_handler = CommandHandler(STRAVA_LOGIN, strava_login)

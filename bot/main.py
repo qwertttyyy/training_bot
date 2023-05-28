@@ -31,7 +31,7 @@ def start_bot():
     job.run_repeating(
         send_evening_reminders,
         interval=timedelta(days=1),
-        first=time(22, 0, 0),
+        first=time(22, 0, 0, tzinfo=MOSCOW_TZ),
     )
     job.run_repeating(
         clear_is_send,

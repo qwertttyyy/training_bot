@@ -10,7 +10,7 @@ services:
     image: postgres:13.10
     env_file: .env
     volumes:
-      - bot_pg_data:/var/lib/postgresql/data
+      - pg_data:/var/lib/postgresql/data
 
   bot:
     image: qwertttyyy/bot
@@ -23,7 +23,6 @@ services:
   strava_app:
     image: qwertttyyy/strava_app
     env_file: .env
-
     depends_on:
       - db
 

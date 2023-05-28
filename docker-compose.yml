@@ -21,7 +21,6 @@ services:
   strava_app:
     build: ./strava_app/
     env_file: .env
-
     depends_on:
       - db
 

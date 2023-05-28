@@ -10,7 +10,7 @@ from telegram.ext import (
 )
 
 from bot.commands.command_list import SEND_WORKOUT_COMMAND
-from bot.config import DATABASE, SPREADSHEET_ID, TRAINER_ID
+from bot.config import DATABASE, SPREADSHEET_ID, TRAINER_ID, DATE_FORMAT
 from bot.google_sheets.sheets import GoogleSheet
 from bot.utilities import (
     catch_exception,
@@ -91,7 +91,7 @@ def send_from_table(update, context):
     for line in data:
         if line:
             today = dt.today().date()
-            date = dt.strptime(line[0].split(', ')[1], '%d.%m.%Y').date()
+            date = dt.strptime(line[0].split(', ')[1], DATE_FORMAT).date()
             if len(line) == 5 and date >= today:
                 day = line[0][:9].replace(',', '')
                 training = line[4]
