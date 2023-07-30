@@ -3,13 +3,15 @@ from django.shortcuts import redirect, render
 
 def strava_login(request):
     chat_id = request.GET.get('chat_id')
+
     if not chat_id:
         return redirect('strava:forbidden')
+
     request.session['chat_id'] = chat_id
     return redirect('social:begin', 'strava')
 
 
-def success_registration(request):
+def success_auth(request):
     return render(request, 'strava_auth/success.html')
 
 

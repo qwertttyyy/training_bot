@@ -1,5 +1,6 @@
 import json
 import time
+from datetime import datetime as dt
 from http import HTTPStatus
 from typing import Callable
 
@@ -17,6 +18,7 @@ from bot.config import (
     SOCIAL_AUTH_STRAVA_SECRET,
     STRAVA_LOGGER,
     UNKNOWN_LOGFILE,
+    DATE_FORMAT,
 )
 from bot.exceptions import (
     APIRequestError,
@@ -64,7 +66,8 @@ def db_execute(database: dict, execution: tuple[str] | tuple[str, tuple]):
 
 
 def get_data_db(
-    database: dict, execution: tuple, method: Callable[[cursor], list] = None
+        database: dict, execution: tuple,
+        method: Callable[[cursor], list] = None
 ):
     try:
         with psycopg2.connect(**database) as conn:
@@ -100,6 +103,21 @@ def get_student_name(database: dict, chat_id) -> list[str]:
     name = get_data_db(database, get_name, method=cursor.fetchone)
 
     return name
+
+
+def set_is_send(database, is_send_var, is_send_value, chat_id):
+    db_execute(
+        database,
+        (
+            'UPDATE students SET {} = %s WHERE chat_id = %s'.format(
+                is_send_var,
+            ),
+            (
+                is_send_value,
+                chat_id,
+            ),
+        ),
+    )
 
 
 def send_message(context, chat_id, message, reply_markup=None):
@@ -190,14 +208,13 @@ def refresh_token(extra_data, chat_id):
                 f'Ошибка обновления токена для {chat_id} - {extra_data}'
             )
             raise RefreshTokenError()
-    strava_logger.info(f'Успешно обновлён токен для {chat_id}')
     return extra_data
 
 
 def get_access_data(database, chat_id):
     access_data = get_data_db(
         database,
-        ('SELECT tokens FROM Students WHERE chat_id = %s', (chat_id,)),
+        ('SELECT tokens FROM students WHERE chat_id = %s', (chat_id,)),
         cursor.fetchone,
     )
 
@@ -207,9 +224,9 @@ def get_access_data(database, chat_id):
         return refreshed_data
 
 
-def strava_api_request(endpoint, access_token, params=None):
+def get_training_data(endpoint, access_token, params=None):
+    headers = {'Authorization': 'Bearer ' + access_token}
     try:
-        headers = {'Authorization': 'Bearer ' + access_token}
         response = requests.get(endpoint, headers=headers, params=params)
         if response.status_code in (200, 201):
             strava_logger.info(f'Успешный запрос к api. {response.json()}')
@@ -223,7 +240,59 @@ def strava_api_request(endpoint, access_token, params=None):
         raise APIRequestError()
 
 
-def calculate_pace(elapsed_time, distance):
+def get_run_activity(strava_data):
+    for activity in strava_data:
+        if activity['type'] == 'Run':
+            return activity
+
+
+def write_to_chat_data(keys: list | tuple, data: dict, chat_data: dict):
+    for key in keys:
+        chat_data[key] = data[key]
+
+
+def get_strava_params(training_data: dict) -> dict | None:
+    params = ('distance', 'average_heartrate', 'moving_time', 'start_date')
+    obtained_data = {}
+    for param in params:
+        value = training_data.get(param)
+        if not value:
+            return None
+        obtained_data[param] = value
+    result_data = {
+        'distance': round(obtained_data['distance'] / 1000, 2),
+        'avg_heart_rate': round(obtained_data['average_heartrate']),
+        'avg_pace': calculate_pace(
+            obtained_data['moving_time'], obtained_data['distance']
+        ),
+        'date': convert_date(
+            obtained_data['start_date'], DATE_FORMAT, '%Y-%m-%dT%H:%M:%SZ'
+        ),
+    }
+    return result_data
+
+
+def calculate_pace(elapsed_time, distance) -> str:
     pace_decimal = elapsed_time / distance / 60 * 1000
     pace_minute = int(pace_decimal) + pace_decimal % 1 * 60 / 100
-    return round(pace_minute, 2)
+    return str(pace_minute)[0:4].replace('.', ':')
+
+
+def get_report_data(keys: list | tuple, chat_data: dict):
+    report_data = {}
+    for key in keys:
+        data = chat_data.get(key)
+        if not data:
+            message_logger.exception(f'Отсутствует переменная {key}')
+            raise ChatDataError()
+        report_data[key] = data
+
+    return report_data
+
+
+def convert_date(
+        date: dt | str, output_format: str, input_format: str | None = None
+) -> str:
+    if isinstance(date, str):
+        return dt.strptime(date, input_format).strftime(output_format)
+    return date.strftime(output_format)

@@ -11,8 +11,10 @@ CREATE_STUDENTS = (
                 archive_id BIGINT,
                 is_send_morning INT NOT NULL,
                 is_send_evening INT NOT NULL,
+                is_send_strava INT NOT NULL,
                 tokens TEXT
                 )''',
 )
 
 db_execute(DATABASE, CREATE_STUDENTS)
+print('База успешно создана')

@@ -88,13 +88,13 @@ def get_last_name(update, context):
     if context.chat_data.get(KEY):
         del context.chat_data[KEY]
 
-    write_data = (
-        '''INSERT INTO students
-         (chat_id, name, last_name, sheet_id, archive_id, is_send_morning, is_send_evening)
-          VALUES (%s, %s, %s, %s, %s, %s, %s)''',
-        (chat_id, name, last_name, sheet_id, archive_sheet_id, 0, 0),
-    )
-    db_execute(DATABASE, write_data)
+        write_data = (
+            '''INSERT INTO students
+             (chat_id, name, last_name, sheet_id, archive_id, is_send_morning, is_send_evening, is_send_strava)
+              VALUES (%s, %s, %s, %s, %s, %s, %s, %s)''',
+            (chat_id, name, last_name, sheet_id, archive_sheet_id, 0, 0, 0),
+        )
+        db_execute(DATABASE, write_data)
 
     reply_message(update, 'Ты зарегистрирован.')
     db_logger.info(f'Зарегистрирован пользователь: {fullname} - {chat_id}')
@@ -125,11 +125,11 @@ reg_handler = ConversationHandler(
     states={
         NAME: [
             MessageHandler(Filters.regex(r'^[a-zA-Zа-яА-Я]+$'), get_name),
-            CallbackQueryHandler(cancel, pattern=r'^cancel'),
+            CallbackQueryHandler(cancel, pattern=r'^cancel$'),
         ],
         LAST_NAME: [
             MessageHandler(Filters.regex(r'^[a-zA-Zа-яА-Я]+$'), get_last_name),
-            CallbackQueryHandler(cancel, pattern=r'^cancel'),
+            CallbackQueryHandler(cancel, pattern=r'^cancel$'),
         ],
     },
     fallbacks=[MessageHandler(Filters.regex, invalid_name)],

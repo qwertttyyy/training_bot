@@ -1,7 +1,6 @@
-from datetime import datetime as dt
+from datetime import datetime as dt, timedelta
 from http import HTTPStatus
 
-from psycopg2._psycopg import cursor
 from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -15,7 +14,7 @@ from telegram.ext import (
     MessageHandler,
 )
 
-from bot.commands.command_list import REPORT_COMMAND
+from bot.commands.command_list import REPORT_COMMAND, STRAVA_LOGIN
 from bot.config import (
     DATABASE,
     SPREADSHEET_ID,
@@ -23,22 +22,24 @@ from bot.config import (
     TRAINER_ID,
     DATE_FORMAT,
 )
-from bot.exceptions import ChatDataError
 from bot.google_sheets.sheets import GoogleSheet
 from bot.utilities import (
-    calculate_pace,
     cancel_button,
     cancel_markup,
     catch_exception,
     clean_chat_data,
-    db_execute,
     get_access_data,
-    get_data_db,
     get_students_ids,
-    message_logger,
     reply_message,
     send_message,
-    strava_api_request,
+    get_training_data,
+    get_student_name,
+    get_report_data,
+    set_is_send,
+    convert_date,
+    get_run_activity,
+    get_strava_params,
+    write_to_chat_data,
 )
 
 REPORT, SCREENSHOT, STRAVA, DISTANCE, AVG_TEMP, AVG_HEART_RATE = range(6)
@@ -50,6 +51,12 @@ DATA_KEYS = [
     'report',
     'date',
     'screenshots',
+]
+TRAINING_PARAMS = [
+    'distance',
+    'avg_pace',
+    'avg_heart_rate',
+    'date',
 ]
 
 
@@ -83,11 +90,17 @@ def get_report(update, context):
         return REPORT
     else:
         context.chat_data['report'] = update.message.text
+        context.chat_data['date'] = convert_date(dt.today(), DATE_FORMAT)
 
         buttons = [
             [
                 InlineKeyboardButton(
                     'Прикрепить скриншот', callback_data='screen'
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    'Отправить только отчёт', callback_data='only_report'
                 )
             ],
             [InlineKeyboardButton('Продолжить', callback_data='strava')],
@@ -98,8 +111,9 @@ def get_report(update, context):
 
         reply_message(
             update,
-            'Теперь можешь отправить один или несколько скриншотов по очереди,'
-            ' либо можешь отправить данные из Strava',
+            'Теперь можешь прикрепить один или несколько скриншотов по '
+            'очереди или отправить отчёт.\n'
+            'Либо нажми "продолжить", чтобы отправить данные из Strava',
             reply_markup,
         )
 
@@ -124,6 +138,11 @@ def save_screenshot(update, context):
                 'Добавить ещё скриншот', callback_data='screen'
             )
         ],
+        [
+            InlineKeyboardButton(
+                'Отправить только отчёт', callback_data='only_report'
+            )
+        ],
         [InlineKeyboardButton('Продолжить', callback_data='strava')],
         cancel_button,
     ]
@@ -133,14 +152,15 @@ def save_screenshot(update, context):
     reply_message(
         update,
         'Скриншот сохранён.\n'
-        'Можешь добавить ещё один, либо нажми продолжить, '
-        'чтобы отправить данные из Strava',
+        'Можешь добавить ещё один или отправить отчёт.\n'
+        'Либо нажми "продолжить", чтобы отправить данные из Strava',
         reply_markup,
     )
 
     return SCREENSHOT
 
 
+@catch_exception
 def strava_choice(update, context):
     buttons = [
         [
@@ -164,7 +184,8 @@ def strava_choice(update, context):
     message = (
         'Теперь ты можешь отправить данные из Strava с помощью ручного ввода, '
         'либо отправить данные из приложения, для этого тебе нужно '
-        'авторизоваться с помощью команды /strava'
+        f'авторизоваться с помощью команды /{STRAVA_LOGIN} '
+        f'(сначала нажми "отменить")'
     )
 
     if access_data:
@@ -181,6 +202,41 @@ def strava_choice(update, context):
     )
 
     return STRAVA
+
+
+def send_only_report(update, context):
+    chat_id = update.effective_chat.id
+    name = get_student_name(DATABASE, chat_id)
+    fullname = f'{name[0]} {name[1]}'
+
+    report_data = get_report_data(['report', 'date'], context.chat_data)
+
+    message = (
+        f'Отчёт после тренировки студента {fullname}\n'
+        f'Дата: {report_data["date"]}\n'
+        f'"{report_data["report"]}"\n'
+    )
+    send_message(context, TRAINER_ID, message)
+
+    screenshots = context.chat_data.get('screenshots')
+
+    clean_chat_data(context, DATA_KEYS)
+
+    gs = GoogleSheet(SPREADSHEET_ID)
+    gs.send_to_table(
+        [report_data['report']], fullname, 'I', report_data['date']
+    )
+
+    set_is_send(DATABASE, 'is_send_evening', 1, chat_id)
+
+    send_message(context, chat_id, 'Отчёт отправлен тренеру!')
+    send_message(context, chat_id, message)
+
+    if screenshots:
+        context.bot.send_media_group(chat_id=TRAINER_ID, media=screenshots)
+        context.bot.send_media_group(chat_id=chat_id, media=screenshots)
+
+    return ConversationHandler.END
 
 
 @catch_exception
@@ -216,7 +272,6 @@ def get_avg_pace(update, context):
 @catch_exception
 def get_avg_heart_rate(update, context):
     context.chat_data['avg_heart_rate'] = update.message.text
-    context.chat_data['date'] = dt.now().strftime(DATE_FORMAT)
     send_strava_data(update, context)
     return ConversationHandler.END
 
@@ -233,7 +288,7 @@ def bad_request_message(context, chat_id):
 
 
 @catch_exception
-def get_strava_app(update, context):
+def get_training(update, context):
     chat_id = update.effective_chat.id
 
     access_data = get_access_data(DATABASE, chat_id)
@@ -245,43 +300,38 @@ def get_strava_app(update, context):
         send_message(
             context,
             chat_id,
-            'Сначала авторизуйся через Strava с помощью команды /strava',
+            f'Сначала авторизуйся через Strava с помощью команды /{STRAVA_LOGIN}',
         )
         return ConversationHandler.END
     else:
         access_token = access_data['access_token']
-        strava_data = strava_api_request(STRAVA_ACTIVITIES, access_token)
+        timestamp_day_ago = (dt.now() - timedelta(days=14)).timestamp()
+        params = {'after': int(timestamp_day_ago)}
+        strava_data = get_training_data(
+            STRAVA_ACTIVITIES, access_token, params
+        )
         if strava_data == HTTPStatus.BAD_REQUEST:
             bad_request_message(context, chat_id)
         else:
-            last_run = None
-            for activity in strava_data:
-                if activity['type'] == 'Run':
-                    last_run = activity
-                    break
+            last_run = get_run_activity(reversed(strava_data))
             if not last_run:
                 send_message(context, chat_id, 'Нужные тренировки отсутствуют')
                 return ConversationHandler.END
-            params = ('distance', 'average_heartrate', 'elapsed_time')
-            for param in params:
-                value = last_run.get(param)
-                if not value:
-                    send_message(
-                        context,
-                        chat_id,
-                        'Ошибка получение одного из параметров. '
-                        'Попробуй ввести данные вручную',
-                    )
-                    return STRAVA
-            distance = last_run['distance']
-            avg_heart_rate = last_run['average_heartrate']
-            elapsed_time = last_run['elapsed_time']
-            date = dt.strptime(last_run['start_date'], '%Y-%m-%dT%H:%M:%SZ')
-            avg_pace = calculate_pace(elapsed_time, distance)
-            context.chat_data['distance'] = round(distance / 1000, 2)
-            context.chat_data['avg_heart_rate'] = round(avg_heart_rate)
-            context.chat_data['avg_pace'] = str(avg_pace).replace('.', ':')
-            context.chat_data['date'] = dt.strftime(date, DATE_FORMAT)
+
+            training_data = get_strava_params(last_run)
+
+            if not training_data:
+                send_message(
+                    context,
+                    chat_id,
+                    'Ошибка получения одного из параметров. '
+                    'Попробуй ввести данные вручную',
+                )
+                return STRAVA
+
+            write_to_chat_data(
+                TRAINING_PARAMS, training_data, context.chat_data
+            )
             send_strava_data(update, context)
             return ConversationHandler.END
 
@@ -290,20 +340,10 @@ def get_strava_app(update, context):
 def send_strava_data(update, context):
     chat_id = update.effective_chat.id
 
-    get_name = (
-        'SELECT name, last_name FROM Students WHERE chat_id = %s',
-        (update.effective_chat.id,),
-    )
-    name = get_data_db(DATABASE, get_name, method=cursor.fetchone)
+    name = get_student_name(DATABASE, chat_id)
     fullname = f'{name[0]} {name[1]}'
 
-    report_data = {}
-    for key in DATA_KEYS[:-1]:
-        data = context.chat_data.get(key)
-        if not data:
-            message_logger.exception(f'Отсутствует переменная {key}')
-            raise ChatDataError()
-        report_data[key] = data
+    report_data = get_report_data(DATA_KEYS[:-1], context.chat_data)
 
     message = (
         f'Отчёт после тренировки студента {fullname}\n'
@@ -313,31 +353,25 @@ def send_strava_data(update, context):
         f'Средний темп: {report_data["avg_pace"]}\n'
         f'Средний пульс: {report_data["avg_heart_rate"]}'
     )
-
     send_message(context, TRAINER_ID, message)
 
     screenshots = context.chat_data.get('screenshots')
-    if screenshots:
-        context.bot.send_media_group(chat_id=TRAINER_ID, media=screenshots)
 
     clean_chat_data(context, DATA_KEYS)
 
+    if screenshots:
+        context.bot.send_media_group(chat_id=TRAINER_ID, media=screenshots)
+
     data_to_table = [report_data[key] for key in DATA_KEYS[:4]]
-
     gs = GoogleSheet(SPREADSHEET_ID)
-    gs.send_to_table(data_to_table, fullname, 'F')
+    gs.send_to_table(data_to_table, fullname, 'F', report_data['date'])
 
-    db_execute(
-        DATABASE,
-        (
-            'UPDATE students SET is_send_evening = 1 WHERE chat_id = %s',
-            (chat_id,),
-        ),
-    )
+    set_is_send(DATABASE, 'is_send_evening', 1, chat_id)
+    set_is_send(DATABASE, 'is_send_strava', 1, chat_id)
 
     send_message(context, chat_id, 'Отчёт отправлен тренеру!')
-
     send_message(context, chat_id, message)
+
     if screenshots:
         context.bot.send_media_group(chat_id=chat_id, media=screenshots)
 
@@ -364,7 +398,7 @@ def invalid_input(update, _):
 @catch_exception
 def cancel(update, context):
     send_message(context, update.effective_chat.id, 'Отменено')
-    clean_chat_data(context, DATA_KEYS)
+    clean_chat_data(context, TRAINING_PARAMS)
 
     return ConversationHandler.END
 
@@ -374,19 +408,21 @@ report_handler = ConversationHandler(
     states={
         REPORT: [
             MessageHandler(Filters.text, get_report),
-            CallbackQueryHandler(cancel, pattern=r'^cancel$'),
+            CallbackQueryHandler(send_only_report, pattern=r'^only_report$'),
             CallbackQueryHandler(strava_choice, pattern=r'^strava$'),
             CallbackQueryHandler(get_screenshot, pattern=r'^screen$'),
+            CallbackQueryHandler(cancel, pattern=r'^cancel$'),
         ],
         SCREENSHOT: [
             MessageHandler(Filters.photo, save_screenshot),
+            CallbackQueryHandler(send_only_report, pattern=r'^only_report$'),
             CallbackQueryHandler(get_screenshot, pattern=r'^screen$'),
             CallbackQueryHandler(strava_choice, pattern=r'^strava$'),
             CallbackQueryHandler(cancel, pattern=r'^cancel$'),
         ],
         STRAVA: [
             CallbackQueryHandler(get_strava_input, pattern=r'^strava_input$'),
-            CallbackQueryHandler(get_strava_app, pattern=r'^strava_app$'),
+            CallbackQueryHandler(get_training, pattern=r'^strava_app$'),
             CallbackQueryHandler(cancel, pattern=r'^cancel$'),
         ],
         DISTANCE: [

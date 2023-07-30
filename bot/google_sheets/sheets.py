@@ -228,20 +228,31 @@ class GoogleSheet:
 
         return sheet_id
 
-    def send_to_table(self, data: list[int], name, first_column: str):
+    def send_to_table(
+        self,
+        data: list[int] | tuple[int],
+        name: str,
+        first_column: str,
+        event_date=None,
+    ):
         try:
             sheet_range = name + '!A2:A'
-            dates = self.get_data(sheet_range)
-            today = dt.today().date()
+            table_dates = self.get_data(sheet_range)
 
-            for column_index in range(1, len(dates) + 1):
-                date = dates[column_index - 1]
+            if not event_date:
+                event_date = dt.today().date()
 
-                if date:
-                    date = dt.strptime(
-                        date[0].split(', ')[1], DATE_FORMAT
+            if isinstance(event_date, str):
+                event_date = dt.strptime(event_date, DATE_FORMAT).date()
+
+            for column_index in range(1, len(table_dates) + 1):
+                table_date = table_dates[column_index - 1]
+
+                if table_date:
+                    table_date = dt.strptime(
+                        table_date[0].split(', ')[1], DATE_FORMAT
                     ).date()
-                    if date == today:
+                    if table_date == event_date:
                         sheet_data = f'{name}!{first_column}{column_index + 1}'
                         self.add_data(sheet_data, [data])
                         break
@@ -300,4 +311,3 @@ class GoogleSheet:
 
 if __name__ == '__main__':
     gs = GoogleSheet(SPREADSHEET_ID)
-    gs.move_rows_to_another_sheet(1746370250, 402341133, 'Михаил Михаил АРХИВ')

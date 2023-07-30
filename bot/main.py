@@ -3,7 +3,12 @@ from datetime import time, timedelta
 from telegram import Bot
 from telegram.ext import Updater
 
-from bot.commands.commands import start_handler, strava_handler
+from bot.commands.commands import (
+    start_handler,
+    auth_strava_handler,
+    delete_callback,
+    delete_handler,
+)
 from bot.config import BOT_TOKEN, MOSCOW_TZ
 from bot.conversations.feeling import feeling_handler
 from bot.conversations.registration import reg_handler
@@ -14,6 +19,7 @@ from bot.repeatings import (
     clear_is_send,
     send_evening_reminders,
     send_morning_reminders,
+    auto_send_training,
 )
 
 
@@ -36,20 +42,28 @@ def start_bot():
     job.run_repeating(
         clear_is_send,
         interval=timedelta(days=1),
-        first=time(3, 0, 0, tzinfo=MOSCOW_TZ),
+        first=time(0, 30, 0, tzinfo=MOSCOW_TZ),
     )
     job.run_repeating(
         archive,
         interval=timedelta(weeks=1),
         first=time(3, 0, 0, tzinfo=MOSCOW_TZ),
     )
+    job.run_repeating(
+        auto_send_training,
+        interval=timedelta(minutes=30),
+        first=600,
+    )
+
     dp.add_handler(reg_handler)
     dp.add_handler(feeling_handler)
     dp.add_handler(workout_handler)
     dp.add_handler(report_handler)
+    dp.add_handler(delete_handler)
+    dp.add_handler(delete_callback)
 
     dp.add_handler(start_handler)
-    dp.add_handler(strava_handler)
+    dp.add_handler(auth_strava_handler)
 
     updater.start_polling()
     updater.idle()

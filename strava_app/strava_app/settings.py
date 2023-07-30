@@ -2,8 +2,9 @@ import os
 import sys
 from pathlib import Path
 
-# from dotenv import load_dotenv
-# load_dotenv()
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,8 +21,17 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['194.35.116.146', '127.0.0.1', 'localhost', '0.0.0.0', 'trainingbot-web.ddns.net']
+# ALLOWED_HOSTS = [
+#     '89.19.211.58',
+#     '127.0.0.1',
+#     'localhost',
+#     '0.0.0.0',
+#     'trainingbot-app.ddns.net',
+# ]
 
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(' ')
+
+TIME_ZONE = 'Europe/Moscow'
 
 # Application definition
 
@@ -44,7 +54,6 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "strava_auth.middlewares.StravaMiddleware",
-    # "strava_auth.middlewares.StravaCompleteMiddleware",
 ]
 
 ROOT_URLCONF = "strava_app.urls"
@@ -74,20 +83,20 @@ WSGI_APPLICATION = "strava_app.wsgi.application"
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('POSTGRES_DB'),
-        'USER': os.getenv('POSTGRES_USER'),
-        'PASSWORD': os.getenv('POSTGRES_PASSWORD'),
-        'HOST': os.getenv('DB_HOST'),
-        'PORT': os.getenv('DB_PORT'),
+        'NAME': os.getenv('POSTGRES_DB', 'test_django_db'),
+        'USER': os.getenv('POSTGRES_USER', 'postgres'),
+        'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'QWEasd135'),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
 
 DATABASE = {
-    'user': os.getenv('POSTGRES_USER'),
-    'password': os.getenv('POSTGRES_PASSWORD'),
-    'host': os.getenv('DB_HOST'),
-    'port': os.getenv('DB_PORT'),
-    'database': os.getenv('POSTGRES_DB'),
+    'user': DATABASES['default']['USER'],
+    'password': DATABASES['default']['PASSWORD'],
+    'host': DATABASES['default']['HOST'],
+    'port': DATABASES['default']['PORT'],
+    'database': DATABASES['default']['NAME'],
 }
 
 # Password validation
@@ -155,5 +164,5 @@ SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.social_auth.associate_user',
     'social_core.pipeline.social_auth.load_extra_data',
     'social_core.pipeline.user.user_details',
-    'strava_auth.save.save_strava_token',
+    'strava_auth.save_tokens.save_strava_token',
 )
