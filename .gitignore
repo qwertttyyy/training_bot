@@ -130,7 +130,7 @@ dmypy.json
 .pyre/
 
 .idea
-test_scripts
-bot/google_sheets/secrets
+test_scripts/
+bot/google_sheets/secrets/
 
 *.db
