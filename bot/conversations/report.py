@@ -37,7 +37,7 @@ from bot.utilities import (
     get_report_data,
     set_is_send,
     convert_date,
-    get_run_activity,
+    get_run_activities,
     get_strava_params,
     write_to_chat_data,
 )
@@ -313,7 +313,7 @@ def get_training(update, context):
         if strava_data == HTTPStatus.BAD_REQUEST:
             bad_request_message(context, chat_id)
         else:
-            last_run = get_run_activity(reversed(strava_data))
+            last_run = get_run_activities(strava_data)[-1]
             if not last_run:
                 send_message(context, chat_id, 'Нужные тренировки отсутствуют')
                 return ConversationHandler.END

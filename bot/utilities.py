@@ -2,7 +2,6 @@ import json
 import time
 from datetime import datetime as dt
 from http import HTTPStatus
-from typing import Callable
 
 import psycopg2
 import requests
@@ -19,6 +18,8 @@ from bot.config import (
     STRAVA_LOGGER,
     UNKNOWN_LOGFILE,
     DATE_FORMAT,
+    TRAINER_ID,
+    SPREADSHEET_ID,
 )
 from bot.exceptions import (
     APIRequestError,
@@ -31,6 +32,7 @@ from bot.exceptions import (
     SendToGoogleSheetsError,
     SheetCreateError,
 )
+from bot.google_sheets.sheets import GoogleSheet
 from bot.log.logs_config import setup_logger
 
 db_logger = setup_logger('DATABASE_LOGGER', DB_LOGFILE)
@@ -65,10 +67,7 @@ def db_execute(database: dict, execution: tuple[str] | tuple[str, tuple]):
         raise DatabaseExecutionError()
 
 
-def get_data_db(
-        database: dict, execution: tuple,
-        method: Callable[[cursor], list] = None
-):
+def get_data_db(database: dict, execution: tuple, method=None):
     try:
         with psycopg2.connect(**database) as conn:
             with conn.cursor() as cur:
@@ -120,6 +119,27 @@ def set_is_send(database, is_send_var, is_send_value, chat_id):
     )
 
 
+def get_sent_trainings(database: dict, chat_id) -> list:
+    execution = (
+        'SELECT is_send_strava FROM students WHERE chat_id = %s',
+        (chat_id,),
+    )
+    data = get_data_db(database, execution, method=cursor.fetchone)
+    return [int(_id) for _id in data[0].strip().split()]
+
+
+def write_training_id(database, training_id, chat_id):
+    training_id = ' ' + str(training_id)
+    db_execute(
+        database,
+        (
+            'UPDATE students SET is_send_strava = is_send_strava || %s '
+            'WHERE chat_id = %s',
+            (training_id, chat_id),
+        ),
+    )
+
+
 def send_message(context, chat_id, message, reply_markup=None):
     try:
         context.bot.send_message(
@@ -130,7 +150,6 @@ def send_message(context, chat_id, message, reply_markup=None):
         message_logger.exception(
             f'Ошибка отправки сообщения {message} -> {chat_id}'
         )
-        raise SendMessageError()
 
 
 def reply_message(update, message, reply_markup=None):
@@ -165,6 +184,11 @@ def clean_chat_data(context, data_keys):
             del context.chat_data[key]
 
 
+def write_to_chat_data(keys: list | tuple, data: dict, chat_data: dict):
+    for key in keys:
+        chat_data[key] = data[key]
+
+
 def refresh_token(extra_data, chat_id):
     current_time = time.time()
 
@@ -190,7 +214,7 @@ def refresh_token(extra_data, chat_id):
                 db_execute(
                     DATABASE,
                     (
-                        'UPDATE Students SET tokens = %s WHERE chat_id = %s',
+                        'UPDATE students SET tokens = %s WHERE chat_id = %s',
                         (str_data, chat_id),
                     ),
                 )
@@ -229,7 +253,7 @@ def get_training_data(endpoint, access_token, params=None):
     try:
         response = requests.get(endpoint, headers=headers, params=params)
         if response.status_code in (200, 201):
-            strava_logger.info(f'Успешный запрос к api. {response.json()}')
+            strava_logger.info(f'Успешный запрос к api.')
             return response.json()
         strava_logger.error(f'Статус запроса к {endpoint} не ОК. {response}')
         return HTTPStatus.BAD_REQUEST
@@ -240,15 +264,98 @@ def get_training_data(endpoint, access_token, params=None):
         raise APIRequestError()
 
 
-def get_run_activity(strava_data):
+def get_run_activities(strava_data):
+    activities = []
     for activity in strava_data:
         if activity['type'] == 'Run':
-            return activity
+            activities.append(activity)
+    return activities
 
 
-def write_to_chat_data(keys: list | tuple, data: dict, chat_data: dict):
-    for key in keys:
-        chat_data[key] = data[key]
+def send_trainings_to_trainer(context, strava_data, chat_id):
+    trainings_ids = get_sent_trainings(DATABASE, chat_id)
+    trainings = get_run_activities(strava_data)
+    check_new = False
+    for training in trainings:
+        if training['id'] not in trainings_ids:
+            check_new = True
+            training_data = get_strava_params(training)
+            if training_data:
+                name = get_student_name(DATABASE, chat_id)
+                fullname = f'{name[0]} {name[1]}'
+                distance, avg_heart_rate, avg_pace, date = (
+                    training_data['distance'],
+                    training_data['avg_heart_rate'],
+                    training_data["avg_pace"],
+                    training_data["date"],
+                )
+
+                message = (
+                    f'Данные последней тренировки студента {fullname}\n'
+                    f'Дата: {date}\n'
+                    f'Расстояние: {distance}\n'
+                    f'Средний темп: {avg_pace}\n'
+                    f'Средний пульс: {avg_heart_rate}'
+                )
+                strava_logger.info(
+                    f'Автоотправка тренировки. '
+                    f'name: {fullname} '
+                    f'id: {training["id"]} '
+                    f'date: {date} '
+                    f'distance: {distance} '
+                    f'avg_pace: {avg_pace} '
+                    f'avg_heart_rate: {avg_heart_rate} '
+                )
+                send_message(context, TRAINER_ID, message)
+                send_message(context, chat_id, message)
+                write_training_id(DATABASE, training['id'], chat_id)
+
+    return check_new
+
+
+def convert_pace_to_string(pace):
+    pace = str(pace)[0:4].replace('.', ':')
+    if len(pace) == 3:
+        pace += '0'
+    return pace
+
+
+def calculate_pace(elapsed_time, distance, is_string=True) -> str:
+    pace_decimal = elapsed_time / distance / 60 * 1000
+    pace_minute = int(pace_decimal) + pace_decimal % 1 * 60 / 100
+    if is_string:
+        return convert_pace_to_string(pace_minute)
+    else:
+        return pace_minute
+
+
+def send_avg_params_to_table(strava_data, chat_id):
+    trainings = get_run_activities(strava_data)
+    distance = 0
+    heart_rate = 0
+    pace = 0
+
+    for training in trainings:
+        distance += training['distance']
+        heart_rate += training['average_heartrate']
+        pace += calculate_pace(
+            training['moving_time'], training['distance'], is_string=False
+        )
+
+    count = len(trainings)
+
+    data_to_table = [
+        round(distance / 1000, 2),
+        convert_pace_to_string(pace / 2),
+        round(heart_rate / count),
+    ]
+    date = convert_date(
+        trainings[0]['start_date'], DATE_FORMAT, '%Y-%m-%dT%H:%M:%SZ'
+    )
+    gs = GoogleSheet(SPREADSHEET_ID)
+    name = get_student_name(DATABASE, chat_id)
+    fullname = f'{name[0]} {name[1]}'
+    gs.send_to_table(data_to_table, fullname, 'F', date)
 
 
 def get_strava_params(training_data: dict) -> dict | None:
@@ -269,13 +376,8 @@ def get_strava_params(training_data: dict) -> dict | None:
             obtained_data['start_date'], DATE_FORMAT, '%Y-%m-%dT%H:%M:%SZ'
         ),
     }
+
     return result_data
-
-
-def calculate_pace(elapsed_time, distance) -> str:
-    pace_decimal = elapsed_time / distance / 60 * 1000
-    pace_minute = int(pace_decimal) + pace_decimal % 1 * 60 / 100
-    return str(pace_minute)[0:4].replace('.', ':')
 
 
 def get_report_data(keys: list | tuple, chat_data: dict):
@@ -291,7 +393,7 @@ def get_report_data(keys: list | tuple, chat_data: dict):
 
 
 def convert_date(
-        date: dt | str, output_format: str, input_format: str | None = None
+    date: dt | str, output_format: str, input_format: str | None = None
 ) -> str:
     if isinstance(date, str):
         return dt.strptime(date, input_format).strftime(output_format)

@@ -40,9 +40,11 @@ MAX_LOG_FILE_SIZE = 50 * 1024
 PORT = 8000
 DOMAIN = 'trainingbot-app.ddns.net'
 TEST_DOMAIN = '127.0.0.1'
-LOGIN_URL = f'https://{TEST_DOMAIN}/login/strava/'
+LOGIN_URL = f'https://{DOMAIN}/login/strava/'
 
-TEST_ACTIVITIES = 'https://my-json-server.typicode.com/qwertttyyy/strava/activities'
+TEST_ACTIVITIES = (
+    'https://my-json-server.typicode.com/qwertttyyy/strava/activities2'
+)
 STRAVA_ACTIVITIES = 'https://www.strava.com/api/v3/athlete/activities'
 
 MOSCOW_TZ = pytz.timezone('Europe/Moscow')

@@ -4,4 +4,4 @@ venv
 *.md
 test_scripts
 bot/log/logs/*.log
-bot/google_sheets/token.json
+bot/google_sheets/secrets/token.json

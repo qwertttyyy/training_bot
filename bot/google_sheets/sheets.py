@@ -28,10 +28,12 @@ class GoogleSheet:
     def __init__(self, spreadsheet_id):
         self.spreadsheet_id = spreadsheet_id
         self.path = os.path.dirname(os.path.abspath(__file__))
-        self.token_path = os.path.join(self.path, 'token.json')
-        self.cred_path = os.path.join(self.path, 'credentials.json')
-        self.sheet_styles = os.path.join(self.path, 'sheet_style.json')
-        self.header_styles = os.path.join(self.path, 'header_style.json')
+        self.token_path = os.path.join(self.path, 'secrets/token.json')
+        self.cred_path = os.path.join(self.path, 'secrets/credentials.json')
+        self.sheet_styles = os.path.join(self.path, 'styles/sheet_style.json')
+        self.header_styles = os.path.join(
+            self.path, 'styles/header_style.json'
+        )
         creds = None
 
         if os.path.exists(self.token_path):
@@ -118,7 +120,6 @@ class GoogleSheet:
             .execute()
         )
 
-        # Сохранение стилей в файл
         with open(filepath, 'w', encoding='UTF-8') as f:
             json.dump(response, f, ensure_ascii=False)
 
@@ -175,7 +176,6 @@ class GoogleSheet:
         return sheet_id
 
     def new_student_sheet(self, sheet_name):
-        # создание нового листа
         sheet_id = self.add_sheet(sheet_name)
 
         with open(self.sheet_styles, 'r', encoding='UTF-8') as f:
@@ -183,8 +183,6 @@ class GoogleSheet:
 
         num_rows = len(styles['sheets'][0]['data'][0]['rowData'])
         num_cols = len(styles['sheets'][0]['data'][0]['rowData'][0]['values'])
-
-        # Запрос на добавление таблицы с применением стилей
 
         data = styles['sheets'][0]['data'][0]['rowData']
 
@@ -292,7 +290,6 @@ class GoogleSheet:
         }
         self.batch_update({"requests": [copy_request]})
 
-        # Delete the source range
         delete_request = {
             "deleteRange": {
                 "range": {

@@ -92,7 +92,7 @@ def get_last_name(update, context):
             '''INSERT INTO students
              (chat_id, name, last_name, sheet_id, archive_id, is_send_morning, is_send_evening, is_send_strava)
               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)''',
-            (chat_id, name, last_name, sheet_id, archive_sheet_id, 0, 0, 0),
+            (chat_id, name, last_name, sheet_id, archive_sheet_id, 0, 0, ''),
         )
         db_execute(DATABASE, write_data)
 
