@@ -367,7 +367,7 @@ def send_strava_data(update, context):
     gs.send_to_table(data_to_table, fullname, 'F', report_data['date'])
 
     set_is_send(DATABASE, 'is_send_evening', 1, chat_id)
-    set_is_send(DATABASE, 'is_send_strava', 1, chat_id)
+    set_is_send(DATABASE, 'is_send_strava', '', chat_id)
 
     send_message(context, chat_id, 'Отчёт отправлен тренеру!')
     send_message(context, chat_id, message)

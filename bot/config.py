@@ -28,13 +28,11 @@ DATABASE = {
 }
 
 LOGS_PATH = os.path.join(PATH, 'log/logs')
-
 DB_LOGFILE = 'database.log'
 MESSAGES_LOGFILE = 'messages.log'
 SHEETS_LOGFILE = 'sheets.log'
 STRAVA_LOGGER = 'strava.log'
 UNKNOWN_LOGFILE = 'unknown.log'
-
 MAX_LOG_FILE_SIZE = 50 * 1024
 
 PORT = 8000

@@ -286,8 +286,8 @@ def send_trainings_to_trainer(context, strava_data, chat_id):
                 distance, avg_heart_rate, avg_pace, date = (
                     training_data['distance'],
                     training_data['avg_heart_rate'],
-                    training_data["avg_pace"],
-                    training_data["date"],
+                    training_data['avg_pace'],
+                    training_data['date'],
                 )
 
                 message = (
@@ -320,7 +320,7 @@ def convert_pace_to_string(pace):
     return pace
 
 
-def calculate_pace(elapsed_time, distance, is_string=True) -> str:
+def calculate_pace(elapsed_time, distance, is_string=True) -> str | int:
     pace_decimal = elapsed_time / distance / 60 * 1000
     pace_minute = int(pace_decimal) + pace_decimal % 1 * 60 / 100
     if is_string:
@@ -346,7 +346,7 @@ def send_avg_params_to_table(strava_data, chat_id):
 
     data_to_table = [
         round(distance / 1000, 2),
-        convert_pace_to_string(pace / 2),
+        convert_pace_to_string(pace / count),
         round(heart_rate / count),
     ]
     date = convert_date(
@@ -358,26 +358,25 @@ def send_avg_params_to_table(strava_data, chat_id):
     gs.send_to_table(data_to_table, fullname, 'F', date)
 
 
-def get_strava_params(training_data: dict) -> dict | None:
-    params = ('distance', 'average_heartrate', 'moving_time', 'start_date')
-    obtained_data = {}
-    for param in params:
-        value = training_data.get(param)
-        if not value:
-            return None
-        obtained_data[param] = value
-    result_data = {
-        'distance': round(obtained_data['distance'] / 1000, 2),
-        'avg_heart_rate': round(obtained_data['average_heartrate']),
-        'avg_pace': calculate_pace(
-            obtained_data['moving_time'], obtained_data['distance']
-        ),
-        'date': convert_date(
-            obtained_data['start_date'], DATE_FORMAT, '%Y-%m-%dT%H:%M:%SZ'
-        ),
+def get_strava_params(training_data: dict) -> dict:
+    return {
+        'distance':
+            (lambda x: round(x / 1000, 2) if x else 'нет данных')
+            (training_data.get('distance')),
+        'avg_heart_rate':
+            (lambda x: round(x) if x else 'нет данных')
+            (training_data.get('average_heartrate')),
+        'avg_pace':
+            (lambda x, y: calculate_pace(x, y) if x and y else 'нет данных')
+            (training_data.get('moving_time'), training_data.get('distance')),
+        'date':
+            (
+                lambda x: convert_date(
+                    x, DATE_FORMAT, '%Y-%m-%dT%H:%M:%SZ'
+                ) if x else 'нет данных'
+            )
+            (training_data.get('start_date')),
     }
-
-    return result_data
 
 
 def get_report_data(keys: list | tuple, chat_data: dict):
@@ -393,7 +392,7 @@ def get_report_data(keys: list | tuple, chat_data: dict):
 
 
 def convert_date(
-    date: dt | str, output_format: str, input_format: str | None = None
+        date: dt | str, output_format: str, input_format: str | None = None
 ) -> str:
     if isinstance(date, str):
         return dt.strptime(date, input_format).strftime(output_format)

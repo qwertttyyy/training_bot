@@ -1,11 +1,1 @@
-.idea
-.gitignore
-venv
-*.md
-test_scripts
-bot/log/logs/*.log
-bot/database/training.db
-strava_app/db.sqlite3
-.tenv
-
 db.sqlite3
