@@ -17,26 +17,24 @@ from bot.utilities import (
     catch_exception,
     clean_chat_data,
     db_execute,
-    get_student_name,
-    get_students_ids,
     message_logger,
     reply_message,
     send_message,
+    Student,
 )
 
 FEEl, SLEEP, PULSE = range(3)
-DATA_KEYS = ['feel', 'sleep', 'pulse']
 
 
 @catch_exception
-def send_feeling(update, _):
-    students_ids = get_students_ids(DATABASE)
+def send_feeling(update, context):
     chat_id = update.effective_chat.id
+    students = Student()
+    students.get_all_students()
 
-    if update.effective_chat.id != TRAINER_ID:
-        if chat_id not in students_ids:
+    if chat_id != TRAINER_ID:
+        if chat_id not in students:
             reply_message(update, 'Ты не зарегистрирован, пройди регистрацию!')
-
             return ConversationHandler.END
 
         reply_message(
@@ -45,26 +43,24 @@ def send_feeling(update, _):
             'Как ты себя сейчас чувствуешь (от 1 до 10) ?',
             cancel_markup,
         )
-
+        context.chat_data['students'] = students
         return FEEl
-    reply_message(update, 'Ты тренер, тебе не нужно отправлять отчёты)')
 
+    reply_message(update, 'Ты тренер, тебе не нужно отправлять отчёты)')
     return ConversationHandler.END
 
 
 @catch_exception
 def get_feeling(update, context):
-    context.chat_data[DATA_KEYS[0]] = update.message.text
+    context.chat_data['feel'] = update.message.text
     reply_message(update, 'Сколько ты спал? (ч.)', cancel_markup)
-
     return SLEEP
 
 
 @catch_exception
 def get_sleep_hours(update, context):
-    context.chat_data[DATA_KEYS[1]] = update.message.text
+    context.chat_data['sleep'] = update.message.text
     reply_message(update, 'Какой у тебя пульс?', cancel_markup)
-
     return PULSE
 
 
@@ -72,36 +68,35 @@ def get_sleep_hours(update, context):
 def get_puls(update, context):
     chat_id = update.effective_chat.id
 
-    context.chat_data[DATA_KEYS[2]] = update.message.text
+    context.chat_data['pulse'] = update.message.text
 
     feelings = []
-
-    for name in DATA_KEYS:
+    for name in ('feel', 'sleep', 'pulse'):
         data = context.chat_data.get(name)
         if not data:
             message_logger.exception(f'Отсутствует переменная {name}')
             raise ChatDataError()
         feelings.append(data)
 
-    name = get_student_name(DATABASE, update.effective_chat.id)
-    fullname = f'{name[0]} {name[1]}'
+    students = context.chat_data.get('students')
+    student = students.get_student(chat_id)
 
     message = (
-        f'Утренний отчёт студента {fullname}:\n'
+        f'Утренний отчёт студента {student.full_name}:\n'
         f'Дата: {dt.now().strftime(DATE_FORMAT)}\n'
         f'Оценка самочувствия: {feelings[0]}\n'
         f'Количество часов сна: {feelings[1]}\n'
         f'Пульс: {feelings[2]}'
     )
 
-    clean_chat_data(context, DATA_KEYS)
+    context.chat_data.clear()
 
     send_message(context, TRAINER_ID, message)
     reply_message(update, 'Отчёт отправлен тренеру!')
     send_message(context, chat_id, message)
 
     gs = GoogleSheet(SPREADSHEET_ID)
-    gs.send_to_table(feelings, fullname, 'B')
+    gs.send_to_table(feelings, student.full_name, 'B')
 
     db_execute(
         DATABASE,
@@ -117,7 +112,7 @@ def get_puls(update, context):
 @catch_exception
 def cancel(update, context):
     send_message(context, update.effective_chat.id, 'Отменено')
-    clean_chat_data(context, DATA_KEYS)
+    context.chat_data.clear()
 
     return ConversationHandler.END
 

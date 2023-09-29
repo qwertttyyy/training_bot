@@ -46,7 +46,7 @@ def start_bot():
     )
     job.run_repeating(
         archive,
-        interval=timedelta(weeks=1),
+        interval=timedelta(days=1),
         first=time(3, 0, 0, tzinfo=MOSCOW_TZ),
     )
     job.run_repeating(

@@ -29,29 +29,20 @@ from bot.utilities import (
     catch_exception,
     clean_chat_data,
     get_access_data,
-    get_students_ids,
     reply_message,
     send_message,
     get_training_data,
-    get_student_name,
     get_report_data,
     set_is_send,
     convert_date,
     get_run_activities,
     get_strava_params,
     write_to_chat_data,
+    Student,
 )
 
 REPORT, SCREENSHOT, STRAVA, DISTANCE, AVG_TEMP, AVG_HEART_RATE = range(6)
 NUMBER_REGEX = r'^\d{1,2}([.,]\d{1,2})?$'
-DATA_KEYS = [
-    'distance',
-    'avg_pace',
-    'avg_heart_rate',
-    'report',
-    'date',
-    'screenshots',
-]
 TRAINING_PARAMS = [
     'distance',
     'avg_pace',
@@ -62,11 +53,11 @@ TRAINING_PARAMS = [
 
 @catch_exception
 def send_report(update, context):
-    students_ids = get_students_ids(DATABASE)
     chat_id = update.effective_chat.id
-
-    if update.effective_chat.id != TRAINER_ID:
-        if chat_id not in students_ids:
+    students = Student()
+    students.get_all_students()
+    if chat_id != TRAINER_ID:
+        if chat_id not in students:
             reply_message(update, 'Ты не зарегистрирован, пройди регистрацию!')
 
             return ConversationHandler.END
@@ -77,6 +68,7 @@ def send_report(update, context):
             cancel_markup,
         )
         context.chat_data['screenshots'] = []
+        context.chat_data['students'] = students
         return REPORT
     reply_message(update, 'Ты тренер, тебе не нужно отправлять отчёты)')
     return ConversationHandler.END
@@ -206,25 +198,24 @@ def strava_choice(update, context):
 
 def send_only_report(update, context):
     chat_id = update.effective_chat.id
-    name = get_student_name(DATABASE, chat_id)
-    fullname = f'{name[0]} {name[1]}'
+    students = context.chat_data.get('students')
+    student = students.get_student(chat_id)
 
     report_data = get_report_data(['report', 'date'], context.chat_data)
 
     message = (
-        f'Отчёт после тренировки студента {fullname}\n'
+        f'Отчёт после тренировки студента {student.full_name}\n'
         f'Дата: {report_data["date"]}\n'
         f'"{report_data["report"]}"\n'
     )
     send_message(context, TRAINER_ID, message)
-
     screenshots = context.chat_data.get('screenshots')
 
-    clean_chat_data(context, DATA_KEYS)
+    context.chat_data.clear()
 
     gs = GoogleSheet(SPREADSHEET_ID)
     gs.send_to_table(
-        [report_data['report']], fullname, 'I', report_data['date']
+        [report_data['report']], student.full_name, 'I', report_data['date']
     )
 
     set_is_send(DATABASE, 'is_send_evening', 1, chat_id)
@@ -340,13 +331,16 @@ def get_training(update, context):
 def send_strava_data(update, context):
     chat_id = update.effective_chat.id
 
-    name = get_student_name(DATABASE, chat_id)
-    fullname = f'{name[0]} {name[1]}'
+    students = context.chat_data.get('students')
+    student = students.get_student(chat_id)
 
-    report_data = get_report_data(DATA_KEYS[:-1], context.chat_data)
+    report_data = get_report_data(
+        ['distance', 'avg_pace', 'avg_heart_rate', 'report', 'date'],
+        context.chat_data,
+    )
 
     message = (
-        f'Отчёт после тренировки студента {fullname}\n'
+        f'Отчёт после тренировки студента {student.full_name}\n'
         f'Дата: {report_data["date"]}\n'
         f'"{report_data["report"]}"\n'
         f'Расстояние: {report_data["distance"]}\n'
@@ -357,14 +351,24 @@ def send_strava_data(update, context):
 
     screenshots = context.chat_data.get('screenshots')
 
-    clean_chat_data(context, DATA_KEYS)
+    context.chat_data.clear()
 
     if screenshots:
         context.bot.send_media_group(chat_id=TRAINER_ID, media=screenshots)
 
-    data_to_table = [report_data[key] for key in DATA_KEYS[:4]]
+    data_to_table = [
+        report_data[key]
+        for key in [
+            'distance',
+            'avg_pace',
+            'avg_heart_rate',
+            'report',
+        ]
+    ]
     gs = GoogleSheet(SPREADSHEET_ID)
-    gs.send_to_table(data_to_table, fullname, 'F', report_data['date'])
+    gs.send_to_table(
+        data_to_table, student.full_name, 'F', report_data['date']
+    )
 
     set_is_send(DATABASE, 'is_send_evening', 1, chat_id)
     set_is_send(DATABASE, 'is_send_strava', '', chat_id)

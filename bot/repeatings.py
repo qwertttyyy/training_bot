@@ -10,23 +10,20 @@ from bot.config import (
 from bot.google_sheets.sheets import GoogleSheet
 from bot.utilities import (
     db_execute,
-    get_data_db,
-    get_access_data,
     get_training_data,
     send_trainings_to_trainer,
     send_avg_params_to_table,
     send_message,
+    Student,
 )
 
 
 def auto_send_training(context):
-    get_students = ('SELECT chat_id, is_send_strava FROM students',)
-    students_ids = get_data_db(DATABASE, get_students)
-
-    for student in students_ids:
-        chat_id = student[0]
-        access_data = get_access_data(DATABASE, chat_id)
-
+    students = Student()
+    students.get_all_students()
+    for student in students:
+        chat_id = student.chat_id
+        access_data = student.get_access_data()
         if access_data:
             access_token = access_data['access_token']
 
@@ -43,11 +40,11 @@ def auto_send_training(context):
 
             if strava_data and strava_data != HTTPStatus.BAD_REQUEST:
                 check_new = send_trainings_to_trainer(
-                    context, strava_data, chat_id
+                    context, strava_data, student
                 )
 
             if check_new:
-                send_avg_params_to_table(strava_data, chat_id)
+                send_avg_params_to_table(strava_data, student)
                 send_message(
                     context,
                     chat_id,
@@ -57,45 +54,40 @@ def auto_send_training(context):
 
 
 def archive(_):
-    get_students = (
-        'SELECT name, last_name, sheet_id, archive_id FROM Students',
-    )
-    students = get_data_db(DATABASE, get_students)
-
     gs = GoogleSheet(SPREADSHEET_ID)
-
+    students = Student()
+    students.get_all_students()
     for student in students:
-        fullname = f'{student[0]} {student[1]}'
-        values = gs.get_data(f'{fullname}!A1:A')
+        values = gs.get_data(f'{student.full_name}!A1:A')
         if len(values) > 32:
             gs.move_rows_to_another_sheet(
-                student[2], student[3], f'{fullname} АРХИВ'
+                student.sheet_id,
+                student.archive_id,
+                f'{student.full_name} АРХИВ',
             )
         sleep(3)
 
 
 def send_morning_reminders(bot):
-    students = get_data_db(
-        DATABASE, ('SELECT chat_id FROM Students WHERE is_send_morning = 0',)
-    )
-
+    students = Student()
+    students.get_all_students()
     for student in students:
-        bot.bot.send_message(
-            chat_id=student[0],
-            text='Не забудь отправить утренний отчёт!',
-        )
+        if student.is_send_morning == 0:
+            bot.bot.send_message(
+                chat_id=student.chat_id,
+                text='Не забудь отправить утренний отчёт!',
+            )
 
 
 def send_evening_reminders(bot):
-    students = get_data_db(
-        DATABASE, ('SELECT chat_id FROM Students WHERE is_send_evening = 0',)
-    )
-
+    students = Student()
+    students.get_all_students()
     for student in students:
-        bot.bot.send_message(
-            chat_id=student[0],
-            text='Не забудь отправить отчёт после тренировки!',
-        )
+        if student.is_send_evening == 0:
+            bot.bot.send_message(
+                chat_id=student.chat_id,
+                text='Не забудь отправить отчёт после тренировки!',
+            )
 
 
 def clear_is_send(_):

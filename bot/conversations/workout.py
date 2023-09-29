@@ -10,14 +10,13 @@ from telegram.ext import (
 )
 
 from bot.commands.command_list import SEND_WORKOUT_COMMAND
-from bot.config import DATABASE, SPREADSHEET_ID, TRAINER_ID, DATE_FORMAT
+from bot.config import SPREADSHEET_ID, TRAINER_ID, DATE_FORMAT
 from bot.google_sheets.sheets import GoogleSheet
 from bot.utilities import (
     catch_exception,
-    get_data_db,
-    get_student_name,
     reply_message,
     send_message,
+    Student,
 )
 
 START = 0
@@ -26,13 +25,12 @@ START = 0
 @catch_exception
 def show_students(update, context):
     if update.effective_chat.id == TRAINER_ID:
-        execution = ('SELECT chat_id, name, last_name FROM Students',)
+        students = Student()
+        students.get_all_students()
         buttons = []
-        students = get_data_db(DATABASE, execution)
-
         for student in students:
-            text = f'{student[1]} {student[2]}'
-            button = InlineKeyboardButton(text, callback_data=student[0])
+            text = student.full_name
+            button = InlineKeyboardButton(text, callback_data=student.chat_id)
             buttons.append([button])
 
         buttons.append(
@@ -46,11 +44,10 @@ def show_students(update, context):
             "Выбери студента, которому отправить тренировку:",
             reply_markup,
         )
-
+        context.chat_data['students'] = students
         return START
     else:
         reply_message(update, 'Только тренер может использовать эту команду.')
-
         return ConversationHandler.END
 
 
@@ -81,10 +78,10 @@ def send_workout(update, context):
 @catch_exception
 def send_from_table(update, context):
     student_id = context.chat_data.get('student_id')
-
-    fullname = ' '.join(get_student_name(DATABASE, student_id))
+    students = context.chat_data.get('students')
+    student = students.get_student(student_id)
     gs = GoogleSheet(SPREADSHEET_ID)
-    data = gs.get_data(f'{fullname}!A:E')[1:]
+    data = gs.get_data(f'{student.full_name}!A:E')[1:]
 
     message = ''
 
@@ -129,10 +126,7 @@ def workout_from_input(update, context):
 @catch_exception
 def cancel(update, context):
     send_message(context, update.effective_chat.id, 'Диалог завершен')
-
-    if context.chat_data.get('student_id'):
-        del context.chat_data['student_id']
-
+    context.chat_data.clear()
     return ConversationHandler.END
 
 

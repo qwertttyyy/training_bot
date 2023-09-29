@@ -15,22 +15,22 @@ from bot.utilities import (
     catch_exception,
     db_execute,
     db_logger,
-    get_students_ids,
     message_logger,
     reply_message,
     send_message,
+    Student,
 )
 
 NAME, LAST_NAME = range(2)
-KEY = 'name'
 
 
 @catch_exception
 def start_registration(update, _):
-    students_ids = get_students_ids(DATABASE)
+    students = Student()
+    students.get_all_students()
     chat_id = update.effective_chat.id
 
-    if chat_id in students_ids:
+    if chat_id in students:
         reply_message(update, 'Ты уже зарегистрирован!')
         return ConversationHandler.END
 
@@ -52,7 +52,7 @@ def start_registration(update, _):
 @catch_exception
 def get_name(update, context):
     name = update.message.text
-    context.chat_data[KEY] = name
+    context.chat_data['name'] = name
 
     reply_message(
         update, 'Введи свою фамилию: (только фамилия)', cancel_markup
@@ -64,10 +64,10 @@ def get_name(update, context):
 @catch_exception
 def get_last_name(update, context):
     chat_id = update.effective_chat.id
-    name = context.chat_data.get(KEY)
+    name = context.chat_data.get('name')
 
     if not name:
-        message_logger.exception(f'Отсутствует переменная {KEY}')
+        message_logger.exception(f'Отсутствует переменная {name}')
         raise ChatDataError()
 
     last_name = update.message.text
@@ -85,8 +85,8 @@ def get_last_name(update, context):
         )
         raise SheetCreateError()
 
-    if context.chat_data.get(KEY):
-        del context.chat_data[KEY]
+    if context.chat_data.get('name'):
+        context.chat_data.clear()
 
         write_data = (
             '''INSERT INTO students
@@ -104,10 +104,7 @@ def get_last_name(update, context):
 
 def cancel(update, context):
     send_message(context, update.effective_chat.id, 'Отменено')
-
-    if context.chat_data.get(KEY):
-        del context.chat_data[KEY]
-
+    context.chat_data.clear()
     return ConversationHandler.END
 
 
