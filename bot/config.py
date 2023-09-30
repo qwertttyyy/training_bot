@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+LOCAL = True
+
 PATH = os.path.dirname(os.path.abspath(__file__))
 
 TRAINER_ID = int(os.getenv('TRAINER_ID', '1726709711'))
@@ -34,16 +36,14 @@ SHEETS_LOGFILE = 'sheets.log'
 STRAVA_LOGGER = 'strava.log'
 UNKNOWN_LOGFILE = 'unknown.log'
 MAX_LOG_FILE_SIZE = 50 * 1024
-
 PORT = 8000
 DOMAIN = 'trainingbot-app.ddns.net'
-TEST_DOMAIN = '127.0.0.1'
-LOGIN_URL = f'https://{DOMAIN}/login/strava/'
-
-TEST_ACTIVITIES = (
-    'https://my-json-server.typicode.com/qwertttyyy/strava/activities2'
-)
-STRAVA_ACTIVITIES = 'https://www.strava.com/api/v3/athlete/activities'
+if LOCAL:
+    LOGIN_URL = f'http://127.0.0.1:8000/login/strava/'
+    STRAVA_ACTIVITIES = 'http://localhost:3000/activities'
+else:
+    LOGIN_URL = f'https://{DOMAIN}/login/strava/'
+    STRAVA_ACTIVITIES = 'https://www.strava.com/api/v3/athlete/activities'
 
 MOSCOW_TZ = pytz.timezone('Europe/Moscow')
 DATE_FORMAT = '%d.%m.%Y'

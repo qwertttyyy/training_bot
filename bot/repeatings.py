@@ -10,7 +10,7 @@ from bot.config import (
 from bot.google_sheets.sheets import GoogleSheet
 from bot.utilities import (
     db_execute,
-    get_training_data,
+    get_trainings_data,
     send_trainings_to_trainer,
     send_avg_params_to_table,
     send_message,
@@ -32,7 +32,7 @@ def auto_send_training(context):
 
             target_timestamp = target_time.timestamp()
             params = {'after': int(target_timestamp)}
-            strava_data = get_training_data(
+            strava_data = get_trainings_data(
                 STRAVA_ACTIVITIES, access_token, params
             )
 

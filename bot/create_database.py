@@ -1,5 +1,4 @@
-from bot.config import DATABASE
-from bot.utilities import db_execute
+from bot.utilities import Database
 
 CREATE_STUDENTS = (
     '''CREATE TABLE IF NOT EXISTS students (
@@ -15,6 +14,6 @@ CREATE_STUDENTS = (
                 tokens TEXT
                 )''',
 )
-
-db_execute(DATABASE, CREATE_STUDENTS)
+db = Database()
+db.execute(CREATE_STUDENTS)
 print('База успешно создана')

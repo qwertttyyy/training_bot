@@ -28,10 +28,9 @@ from bot.utilities import (
     cancel_markup,
     catch_exception,
     clean_chat_data,
-    get_access_data,
     reply_message,
     send_message,
-    get_training_data,
+    get_trainings_data,
     get_report_data,
     set_is_send,
     convert_date,
@@ -171,7 +170,8 @@ def strava_choice(update, context):
     reply_markup = InlineKeyboardMarkup(buttons)
 
     chat_id = update.effective_chat.id
-    access_data = get_access_data(DATABASE, chat_id)
+    student = context.chat_data.get('students').get_student(chat_id)
+    access_data = student.get_access_data()
 
     message = (
         'Теперь ты можешь отправить данные из Strava с помощью ручного ввода, '
@@ -281,8 +281,8 @@ def bad_request_message(context, chat_id):
 @catch_exception
 def get_training(update, context):
     chat_id = update.effective_chat.id
-
-    access_data = get_access_data(DATABASE, chat_id)
+    student = context.chat_data.get('students').get_student(chat_id)
+    access_data = student.get_access_data()
 
     if access_data == HTTPStatus.BAD_REQUEST:
         bad_request_message(context, chat_id)
@@ -298,7 +298,7 @@ def get_training(update, context):
         access_token = access_data['access_token']
         timestamp_day_ago = (dt.now() - timedelta(days=14)).timestamp()
         params = {'after': int(timestamp_day_ago)}
-        strava_data = get_training_data(
+        strava_data = get_trainings_data(
             STRAVA_ACTIVITIES, access_token, params
         )
         if strava_data == HTTPStatus.BAD_REQUEST:

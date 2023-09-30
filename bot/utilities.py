@@ -129,10 +129,9 @@ class Student:
             raise ValueError('Сначала вызовите метод get_all_students')
 
     def __iter__(self):
-        if self.all_students is not None:
-            return iter(self.all_students)
-        else:
+        if self.all_students is None:
             raise ValueError('Сначала вызовите метод get_all_students')
+        return iter(self.all_students)
 
     @classmethod
     def get_all_students(cls) -> list[Self]:
@@ -146,13 +145,12 @@ class Student:
         ]
         return cls.all_students
 
-    def get_student(self, chat_id) -> Self | None:
-        if self.all_students is not None:
-            for student in self.all_students:
-                if student.chat_id == chat_id:
-                    return student
-        else:
+    def get_student(self, chat_id):
+        if self.all_students is None:
             raise ValueError('Сначала вызовите метод get_all_students')
+        for student in self.all_students:
+            if student.chat_id == chat_id:
+                return student
 
     def get_access_data(self):
         if self.tokens:
@@ -180,43 +178,6 @@ def db_execute(database: dict, execution: tuple[str] | tuple[str, tuple]):
         raise DatabaseExecutionError()
 
 
-def get_data_db(database: dict, execution: tuple, method=None):
-    try:
-        with psycopg2.connect(**database) as conn:
-            with conn.cursor() as cur:
-                cur.execute(*execution)
-
-                if method is cursor.fetchone:
-                    result = cur.fetchone()
-                else:
-                    result = cur.fetchall()
-        db_logger.info(f'Получение данных {result} из бд')
-        return result
-
-    except Exception:
-        db_logger.exception(f'Ошибка получения данных {execution} из базы')
-        raise DatabaseGetDataError()
-
-
-def get_students_ids(database: dict):
-    execution = ('SELECT chat_id FROM students',)
-    students_ids = tuple(
-        student[0]
-        for student in get_data_db(database, execution, method=cursor.fetchall)
-    )
-    return students_ids
-
-
-def get_student_name(database: dict, chat_id) -> list[str]:
-    get_name = (
-        'SELECT name, last_name FROM students WHERE chat_id = %s',
-        (chat_id,),
-    )
-    name = get_data_db(database, get_name, method=cursor.fetchone)
-
-    return name
-
-
 def set_is_send(database, is_send_var, is_send_value, chat_id):
     db_execute(
         database,
@@ -230,15 +191,6 @@ def set_is_send(database, is_send_var, is_send_value, chat_id):
             ),
         ),
     )
-
-
-def get_sent_trainings(database: dict, chat_id) -> list:
-    execution = (
-        'SELECT is_send_strava FROM students WHERE chat_id = %s',
-        (chat_id,),
-    )
-    data = get_data_db(database, execution, method=cursor.fetchone)
-    return [int(_id) for _id in data[0].strip().split()]
 
 
 def write_training_id(database, training_id, chat_id):
@@ -348,20 +300,7 @@ def refresh_token(extra_data, chat_id):
     return extra_data
 
 
-def get_access_data(database, chat_id):
-    access_data = get_data_db(
-        database,
-        ('SELECT tokens FROM students WHERE chat_id = %s', (chat_id,)),
-        cursor.fetchone,
-    )
-
-    if access_data and access_data[0]:
-        json_data = json.loads(access_data[0])
-        refreshed_data = refresh_token(json_data, chat_id)
-        return refreshed_data
-
-
-def get_training_data(endpoint, access_token, params=None):
+def get_trainings_data(endpoint, access_token, params=None):
     headers = {'Authorization': 'Bearer ' + access_token}
     try:
         response = requests.get(endpoint, headers=headers, params=params)

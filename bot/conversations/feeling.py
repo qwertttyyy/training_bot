@@ -15,7 +15,6 @@ from bot.google_sheets.sheets import GoogleSheet
 from bot.utilities import (
     cancel_markup,
     catch_exception,
-    clean_chat_data,
     db_execute,
     message_logger,
     reply_message,

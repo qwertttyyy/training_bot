@@ -53,8 +53,8 @@ def show_students(update, context):
 
 @catch_exception
 def send_workout(update, context):
-    student = int(update.callback_query.data)
-    context.chat_data['student_id'] = student
+    student_chat_id = int(update.callback_query.data)
+    context.chat_data['student_chat_id'] = student_chat_id
     buttons = [
         [
             InlineKeyboardButton(
@@ -77,9 +77,9 @@ def send_workout(update, context):
 
 @catch_exception
 def send_from_table(update, context):
-    student_id = context.chat_data.get('student_id')
+    student_chat_id = context.chat_data.get('student_chat_id')
     students = context.chat_data.get('students')
-    student = students.get_student(student_id)
+    student = students.get_student(student_chat_id)
     gs = GoogleSheet(SPREADSHEET_ID)
     data = gs.get_data(f'{student.full_name}!A:E')[1:]
 
@@ -102,25 +102,35 @@ def send_from_table(update, context):
         )
         return ConversationHandler.END
 
-    send_message(context, student_id, message)
+    send_message(context, student_chat_id, message)
     send_message(
         context,
         TRAINER_ID,
         'Тренировки отправлены',
     )
-
+    context.chat_data.clear()
     show_students(update, context)
 
 
 @catch_exception
 def workout_from_input(update, context):
     message = f'Вот твоя задача на сегодня:\n' f'{update.message.text}'
-    send_message(context, context.chat_data['student_id'], message)
-    reply_message(
-        update,
-        'Тренировка отправлена',
-    )
-    show_students(update, context)
+    student_chat_id = context.chat_data.get('student_chat_id')
+    if student_chat_id is not None:
+        send_message(context, student_chat_id, message)
+        reply_message(
+            update,
+            'Тренировка отправлена',
+        )
+        context.chat_data.clear()
+        show_students(update, context)
+    else:
+        send_message(
+            context,
+            update.effective_chat.id,
+            'Выбери студента либо заверши диалог',
+        )
+        return START
 
 
 @catch_exception
