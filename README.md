@@ -21,7 +21,6 @@ TrainingBot - это бот для тренеров и спортсменов в
 - Google API Python Client
 - PostgreSQL
 - Docker
-- Nginx
 
 ## Установка и запуск
 
@@ -38,7 +37,7 @@ git clone git@github.com:qwertttyyy/training_bot.git
 ```bash
 docker-compose up -d
 ```
-3. Примените миграции создайте базу для бота:
+3. Примените миграции и создайте базу для бота:
 ```bash
 sudo docker compose exec bot python manage.py migrate
 sudo docker compose exec bot create_database.py
