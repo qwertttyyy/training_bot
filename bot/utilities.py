@@ -165,6 +165,107 @@ class Student:
         return f'<{self.name} {self.last_name} {self.chat_id}>'
 
 
+class Training:
+    def __init__(self, strava_data: list = None, training_data: dict = None):
+        self.strava_data = strava_data
+        if strava_data:
+            self.trainings = [
+                Training(training_data=training_data)
+                for training_data in self.strava_data
+                if training_data.get('type') == 'Run'
+            ]
+        self.training_data = training_data
+        if training_data:
+            self.id = training_data.get('id')
+            self.distance = self._get_distance()
+            self.avg_heart_rate = self._get_avg_heart_rate()
+            self.avg_pace = self._convert_pace_to_string(self._get_avg_pace())
+            self.date = self._get_date()
+
+    def _get_param(self, *params: str, func=None):
+        params = [self.training_data.get(param) for param in params]
+        if None in params:
+            return 'нет данных'
+        return func(*params)
+
+    def _get_distance(self) -> int:
+        return self._get_param('distance', func=lambda x: round(x / 1000, 2))
+
+    def _get_avg_heart_rate(self) -> int:
+        return self._get_param('average_heartrate', func=lambda x: round(x))
+
+    def _get_avg_pace(self) -> str:
+        return self._get_param(
+            'moving_time',
+            'distance',
+            func=lambda x, y: self._calculate_pace(x, y),
+        )
+
+    def _get_date(self):
+        return self._get_param(
+            'start_date',
+            func=lambda x: convert_date(x, DATE_FORMAT, '%Y-%m-%dT%H:%M:%SZ'),
+        )
+
+    def __iter__(self):
+        return iter(self.trainings)
+
+    def get_avg_params(self):
+        if self.strava_data:
+
+            def check_param(param):
+                return param if param != 'нет данных' else 0
+
+            self.distance = 0
+            self.avg_pace = 0
+            self.avg_heart_rate = 0
+            pace_count = 0
+            heart_rate_count = 0
+            for training in self:
+                avg_pace = check_param(training._get_avg_pace())
+                avg_heart_rate = check_param(training.avg_heart_rate)
+                if avg_pace != 0:
+                    self.avg_pace += avg_pace
+                    pace_count += 1
+                if avg_heart_rate != 0:
+                    self.avg_heart_rate += avg_heart_rate
+                    heart_rate_count += 1
+                self.distance += check_param(training.distance)
+
+            def get_avg_param(param, func=None, count=1):
+                if param == 0:
+                    return 'нет данных'
+                if func:
+                    return func(
+                        param / count,
+                    )
+                return param
+
+            self.distance = get_avg_param(self.distance)
+            if self.distance != 'нет данных':
+                self.distance = round(self.distance, 2)
+            self.avg_pace = get_avg_param(
+                self.avg_pace, self._convert_pace_to_string, pace_count
+            )
+            self.avg_heart_rate = get_avg_param(
+                self.avg_heart_rate, round, heart_rate_count
+            )
+            return self
+
+    @staticmethod
+    def _convert_pace_to_string(pace):
+        if pace != 'нет данных':
+            pace = str(round(pace, 2))[0:4].replace('.', ':')
+            return pace + '0' if len(pace) == 3 else pace
+        return pace
+
+    @staticmethod
+    def _calculate_pace(elapsed_time, distance) -> float:
+        pace_decimal = elapsed_time / distance / 60 * 1000
+        pace_minute = int(pace_decimal) + pace_decimal % 1 * 60 / 100
+        return pace_minute
+
+
 def db_execute(database: dict, execution: tuple[str] | tuple[str, tuple]):
     try:
         with psycopg2.connect(**database) as conn:
@@ -344,48 +445,38 @@ def get_strava_params(training_data: dict) -> dict:
 
 
 def send_trainings_to_trainer(context, strava_data, student: Student):
-    trainings = get_run_activities(strava_data)
+    trainings = Training(strava_data=strava_data)
     check_new = False
     for training in trainings:
-        if training['id'] not in student.get_sent_trainings():
+        if training.id not in student.get_sent_trainings():
             check_new = True
-            training_data = get_strava_params(training)
-            distance, avg_heart_rate, avg_pace, date = (
-                training_data['distance'],
-                training_data['avg_heart_rate'],
-                training_data['avg_pace'],
-                training_data['date'],
-            )
-
             message = (
                 f'Данные последней тренировки студента '
                 f'{student.full_name}\n'
-                f'Дата: {date}\n'
-                f'Расстояние: {distance}\n'
-                f'Средний темп: {avg_pace}\n'
-                f'Средний пульс: {avg_heart_rate}'
+                f'Дата: {training.date}\n'
+                f'Расстояние: {training.distance}\n'
+                f'Средний темп: {training.avg_pace}\n'
+                f'Средний пульс: {training.avg_heart_rate}'
             )
             strava_logger.info(
                 f'Автоотправка тренировки. '
                 f'name: {student.full_name} '
-                f'id: {training["id"]} '
-                f'date: {date} '
-                f'distance: {distance} '
-                f'avg_pace: {avg_pace} '
-                f'avg_heart_rate: {avg_heart_rate} '
+                f'id: {training.id} '
+                f'date: {training.date} '
+                f'distance: {training.distance} '
+                f'avg_pace: {training.avg_pace} '
+                f'avg_heart_rate: {training.avg_heart_rate} '
             )
             send_message(context, TRAINER_ID, message)
             send_message(context, student.chat_id, message)
-            write_training_id(DATABASE, training['id'], student.chat_id)
+            write_training_id(DATABASE, training.id, student.chat_id)
 
     return check_new
 
 
 def convert_pace_to_string(pace):
     pace = str(pace)[0:4].replace('.', ':')
-    if len(pace) == 3:
-        pace += '0'
-    return pace
+    return pace + '0' if len(pace) == 3 else pace
 
 
 def calculate_pace(elapsed_time, distance, is_string=True) -> str | int:
@@ -398,30 +489,36 @@ def calculate_pace(elapsed_time, distance, is_string=True) -> str | int:
 
 
 def send_avg_params_to_table(strava_data, student: Student):
-    trainings = get_run_activities(strava_data)
-    distance = 0
-    heart_rate = 0
-    pace = 0
-
-    for training in trainings:
-        distance += training['distance']
-        heart_rate += training['average_heartrate']
-        pace += calculate_pace(
-            training['moving_time'], training['distance'], is_string=False
-        )
-
-    count = len(trainings)
-
+    averages = Training(strava_data).get_avg_params()
+    # trainings = get_run_activities(strava_data)
+    # distance = 0
+    # heart_rate = 0
+    # pace = 0
+    #
+    # for training in trainings:
+    #     distance += training['distance']
+    #     heart_rate += training['average_heartrate']
+    #     pace += calculate_pace(
+    #         training['moving_time'], training['distance'], is_string=False
+    #     )
+    #
+    # count = len(trainings)
+    #
+    # data_to_table = [
+    #     round(distance / 1000, 2),
+    #     convert_pace_to_string(pace / count),
+    #     round(heart_rate / count),
+    # ]
+    # date = convert_date(
+    #     trainings[0]['start_date'], DATE_FORMAT, '%Y-%m-%dT%H:%M:%SZ'
+    # )
     data_to_table = [
-        round(distance / 1000, 2),
-        convert_pace_to_string(pace / count),
-        round(heart_rate / count),
+        averages.distance,
+        averages.avg_pace,
+        averages.avg_heart_rate
     ]
-    date = convert_date(
-        trainings[0]['start_date'], DATE_FORMAT, '%Y-%m-%dT%H:%M:%SZ'
-    )
     gs = GoogleSheet(SPREADSHEET_ID)
-    gs.send_to_table(data_to_table, student.full_name, 'F', date)
+    gs.send_to_table(data_to_table, student.full_name, 'F', averages.date)
 
 
 def get_report_data(keys: list | tuple, chat_data: dict):

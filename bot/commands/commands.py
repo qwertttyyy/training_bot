@@ -13,7 +13,9 @@ from bot.commands.command_list import (
 from bot.config import LOGIN_URL, TRAINER_ID
 from bot.utilities import (
     reply_message,
-    send_message, Database, Student,
+    send_message,
+    Database,
+    Student,
 )
 
 
@@ -26,27 +28,27 @@ def start(update, _):
         {
             'command': f'/{REGISTRATION_COMMAND}',
             'description': 'команда для регистрации, для того, '
-                           'чтобы отправлять тренеру информацию о тебе',
+            'чтобы отправлять тренеру информацию о тебе',
         },
         {
             'command': f'/{FEELING_COMMAND}',
             'description': 'команда для отправки утреннего '
-                           'отчёта о своём самочувствие',
+            'отчёта о своём самочувствие',
         },
         {
             'command': f'/{REPORT_COMMAND}',
             'description': 'команда для отправки отчёта после '
-                           'тренировки вместе с данными из Strava, можно приложить скриншоты.',
+            'тренировки вместе с данными из Strava, можно приложить скриншоты.',
         },
         {
             'command': f'/{SEND_WORKOUT_COMMAND}',
             'description': 'команда, доступная только тренеру, '
-                           'служит для отправки тренировок спортсменам',
+            'служит для отправки тренировок спортсменам',
         },
         {
             'command': f'/{STRAVA_LOGIN}',
             'description': 'команда для авторизации через Strava, '
-                           'чтобы можно было получать данные из приложения',
+            'чтобы можно было получать данные из приложения',
         },
         {
             'command': f'/{DELETE_COMMAND}',
