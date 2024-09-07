@@ -3,8 +3,9 @@ import os
 from datetime import datetime as dt
 from datetime import timedelta
 
+from dotenv import load_dotenv
 from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
+from google.oauth2.service_account import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
@@ -20,10 +21,25 @@ from bot.log.logs_config import setup_logger
 
 sheet_logger = setup_logger("SHEET_LOGGER", SHEETS_LOGFILE)
 
+load_dotenv()
+
 
 class GoogleSheet:
     SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
     service = None
+
+    INFO = {
+        "type": os.getenv("TYPE"),
+        "project_id": os.getenv("PROJECT_ID"),
+        "private_key_id": os.getenv("PRIVATE_KEY_ID"),
+        "private_key": os.getenv("PRIVATE_KEY"),
+        "client_email": os.getenv("CLIENT_EMAIL"),
+        "client_id": os.getenv("CLIENT_ID"),
+        "auth_uri": os.getenv("AUTH_URI"),
+        "token_uri": os.getenv("TOKEN_URI"),
+        "auth_provider_x509_cert_url": os.getenv("AUTH_PROVIDER_X509_CERT_URL"),
+        "client_x509_cert_url": os.getenv("CLIENT_X509_CERT_URL"),
+    }
 
     def __init__(self, spreadsheet_id):
         self.spreadsheet_id = spreadsheet_id
@@ -34,19 +50,22 @@ class GoogleSheet:
         self.header_styles = os.path.join(self.path, "styles/header_style.json")
         creds = None
 
-        if os.path.exists(self.token_path):
-            creds = Credentials.from_authorized_user_file(self.token_path, self.SCOPES)
-
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-            else:
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    self.cred_path, self.SCOPES
-                )
-                creds = flow.run_local_server(port=0)
-            with open(self.token_path, "w") as token:
-                token.write(creds.to_json())
+        # if os.path.exists(self.token_path):
+        #     creds = Credentials.from_authorized_user_file(self.token_path, self.SCOPES)
+        #
+        # if not creds or not creds.valid:
+        #     if creds and creds.expired and creds.refresh_token:
+        #         creds.refresh(Request())
+        #     else:
+        #         flow = InstalledAppFlow.from_client_secrets_file(
+        #             self.cred_path, self.SCOPES
+        #         )
+        #         creds = flow.run_local_server(port=0)
+        #     with open(self.token_path, "w") as token:
+        #         token.write(creds.to_json())
+        creds = Credentials.from_service_account_info(
+            info=self.INFO, scopes=self.SCOPES
+        )
         try:
             self.service = build("sheets", "v4", credentials=creds)
         except Exception:

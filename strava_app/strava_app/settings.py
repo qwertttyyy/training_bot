@@ -16,7 +16,7 @@ sys.path.insert(0, str(PROJECT_DIR))
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY')
+SECRET_KEY = os.getenv("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -29,9 +29,9 @@ DEBUG = True
 #     'trainingbot-app.ddns.net',
 # ]
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(' ')
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "*").split(" ")
 
-TIME_ZONE = 'Europe/Moscow'
+TIME_ZONE = "Europe/Moscow"
 
 # Application definition
 
@@ -61,7 +61,7 @@ ROOT_URLCONF = "strava_app.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / 'templates'],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -81,22 +81,22 @@ WSGI_APPLICATION = "strava_app.wsgi.application"
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('POSTGRES_DB', 'test_django_db'),
-        'USER': os.getenv('POSTGRES_USER', 'postgres'),
-        'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'QWEasd135'),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
-        'PORT': os.getenv('DB_PORT', '5432'),
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("POSTGRES_DB"),
+        "USER": os.getenv("POSTGRES_USER"),
+        "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
+        "HOST": os.getenv("DB_HOST"),
+        "PORT": os.getenv("DB_PORT"),
     }
 }
 
 DATABASE = {
-    'user': DATABASES['default']['USER'],
-    'password': DATABASES['default']['PASSWORD'],
-    'host': DATABASES['default']['HOST'],
-    'port': DATABASES['default']['PORT'],
-    'database': DATABASES['default']['NAME'],
+    "user": DATABASES["default"]["USER"],
+    "password": DATABASES["default"]["PASSWORD"],
+    "host": DATABASES["default"]["HOST"],
+    "port": DATABASES["default"]["PORT"],
+    "database": DATABASES["default"]["NAME"],
 }
 
 # Password validation
@@ -123,7 +123,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = "UTC"
+# TIME_ZONE = "UTC"
 
 USE_I18N = True
 
@@ -141,28 +141,28 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 AUTHENTICATION_BACKENDS = (
-    'social_core.backends.strava.StravaOAuth',
-    'django.contrib.auth.backends.ModelBackend',
+    "social_core.backends.strava.StravaOAuth",
+    "django.contrib.auth.backends.ModelBackend",
 )
 
-SOCIAL_AUTH_URL_NAMESPACE = 'social'
+SOCIAL_AUTH_URL_NAMESPACE = "social"
 
-SOCIAL_AUTH_STRAVA_KEY = os.getenv('SOCIAL_AUTH_STRAVA_KEY')
-SOCIAL_AUTH_STRAVA_SECRET = os.getenv('SOCIAL_AUTH_STRAVA_SECRET')
-SOCIAL_AUTH_STRAVA_SCOPE = ['read_all', 'activity:read_all']
-SOCIAL_AUTH_STRAVA_AUTH_EXTRA_ARGUMENTS = {'approval_prompt': 'auto'}
-SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/strava/success/'
+SOCIAL_AUTH_STRAVA_KEY = os.getenv("SOCIAL_AUTH_STRAVA_KEY")
+SOCIAL_AUTH_STRAVA_SECRET = os.getenv("SOCIAL_AUTH_STRAVA_SECRET")
+SOCIAL_AUTH_STRAVA_SCOPE = ["read_all", "activity:read_all"]
+SOCIAL_AUTH_STRAVA_AUTH_EXTRA_ARGUMENTS = {"approval_prompt": "auto"}
+SOCIAL_AUTH_LOGIN_REDIRECT_URL = "/strava/success/"
 SOCIAL_AUTH_RAISE_EXCEPTIONS = False
 
 SOCIAL_AUTH_PIPELINE = (
-    'social_core.pipeline.social_auth.social_details',
-    'social_core.pipeline.social_auth.social_uid',
-    'social_core.pipeline.social_auth.auth_allowed',
-    'social_core.pipeline.social_auth.social_user',
-    'social_core.pipeline.user.get_username',
-    'social_core.pipeline.user.create_user',
-    'social_core.pipeline.social_auth.associate_user',
-    'social_core.pipeline.social_auth.load_extra_data',
-    'social_core.pipeline.user.user_details',
-    'strava_auth.save_tokens.save_strava_token',
+    "social_core.pipeline.social_auth.social_details",
+    "social_core.pipeline.social_auth.social_uid",
+    "social_core.pipeline.social_auth.auth_allowed",
+    "social_core.pipeline.social_auth.social_user",
+    "social_core.pipeline.user.get_username",
+    "social_core.pipeline.user.create_user",
+    "social_core.pipeline.social_auth.associate_user",
+    "social_core.pipeline.social_auth.load_extra_data",
+    "social_core.pipeline.user.user_details",
+    "strava_auth.save_tokens.save_strava_token",
 )

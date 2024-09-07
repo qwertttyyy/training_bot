@@ -1,0 +1,34 @@
+version: '3'
+
+volumes:
+  pg_data:
+  logs:
+
+services:
+  db:
+    restart: always
+    image: postgres:13.10
+    env_file: .env
+    ports:
+      - "5433:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  bot:
+    restart: always
+    build: ./bot/
+    env_file: .env
+    depends_on:
+      - db
+    volumes:
+      - logs:/app/bot/log/logs
+
+  strava_app:
+    restart: always
+    build: ./strava_app/
+    env_file: .env
+    depends_on:
+      - db
+
+    ports:
+      - "8000:8000"

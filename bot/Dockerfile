@@ -1,4 +1,4 @@
-FROM python:3.11
+FROM python:3.11-slim
 
 WORKDIR /app/bot/
 
@@ -15,3 +15,6 @@ RUN apt update && apt install nano
 COPY . .
 
 CMD ["python", "main.py"]
+
+CMD bash -c "python create_database.py && \
+             python main.py"

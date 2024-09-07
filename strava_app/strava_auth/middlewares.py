@@ -7,18 +7,18 @@ class StravaMiddleware:
 
     def __call__(self, request):
         if (
-            request.path == '/login/strava/'
-            and not request.GET.get('chat_id')
-            and 'strava' in request.path
+            request.path == "/login/strava/"
+            and not request.GET.get("chat_id")
+            and "strava" in request.path
         ):
-            return redirect('strava:forbidden')
+            return redirect("strava:forbidden")
 
-        error = request.GET.get('error')
+        error = request.GET.get("error")
 
-        if request.path == '/complete/strava/' and error == 'access_denied':
-            return redirect('strava:canceled')
+        if request.path == "/complete/strava/" and error == "access_denied":
+            return redirect("strava:canceled")
 
         response = self.get_response(request)
-        request.session['chat_id'] = request.GET.get('chat_id')
+        request.session["chat_id"] = request.GET.get("chat_id")
 
         return response
