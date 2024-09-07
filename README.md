@@ -14,14 +14,13 @@ TrainingBot - это бот для тренеров и спортсменов в
 
 ### Технологический стек:
 
-- Python 3.11
-- Python Telegram Bot 13.7
-- Django 4.2
+- Python
+- Python Telegram Bot
+- Django
 - django-social-auth
-- Google API Python Client 
-- PostgreSQL 13.10
-- Docker 
-- Docker Compose v1+
+- Google API Python Client
+- PostgreSQL
+- Docker
 
 
 ### Инструкция по развертыванию
