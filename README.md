@@ -24,8 +24,9 @@ TrainingBot - это бот для тренеров и спортсменов в
 
 
 ### Инструкция по развертыванию
-1. Установить и запустить Docker 
-2. Установить все переменные окружения в .env на примере [.env.example](.env.example) !!! Все переменные обязательны !!!
+1. Склонировать репозиторий `git clone git@github.com:qwertttyyy/training_bot.git`, либо скачать архивом.
+2. Установить и запустить Docker 
+3. Установить все переменные окружения в .env на примере [.env.example](.env.example) !!! Все переменные обязательны !!!
    1. По инструкции из файла [Google_Cloud_Platform_API_и_сервисный_аккаунт.html](instructions%2FGoogle_Cloud_Platform_API_%D0%B8_%D1%81%D0%B5%D1%80%D0%B2%D0%B8%D1%81%D0%BD%D1%8B%D0%B9_%D0%B0%D0%BA%D0%BA%D0%B0%D1%83%D0%BD%D1%82.html) получить учетные данные для Google Sheets и заполнить соответствующие переменные.
    2. Заполнить данные для БД
    3. Создать бота через https://t.me/BotFather
@@ -35,5 +36,5 @@ TrainingBot - это бот для тренеров и спортсменов в
    7. Скопировать из адресной строки SPREADSHEET_ID в одноимённую переменную![img.png](instructions/img.png)
    8. Перейти на https://www.strava.com/. Войти через Google. Перейти на https://www.strava.com/settings/api. Заполнить нужные данные и указать в "Домен для запросов приложения" домен или ip адрес сервера, либо localhost при локальном развертывании. ![img2.png](instructions%2Fimg2.png)
    9. Скопировать значение ID клиента в SOCIAL_AUTH_STRAVA_KEY и Client Secret в SOCIAL_AUTH_STRAVA_SECRET ![img.png](instructions/img3.png)
-2. Запустить контейнеры командой `docker compose up -d --build` либо `docker compose -f docker-compose.prod.yml up -d --build` если развертывание на сервере.
-3. Теперь можно пользоваться ботом !
+4. Запустить контейнеры командой `docker compose up -d --build` из корня проекта, либо `docker compose -f docker-compose.prod.yml up -d --build` если развертывание на сервере.
+5. Теперь можно пользоваться ботом !
