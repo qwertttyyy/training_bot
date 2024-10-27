@@ -34,7 +34,7 @@ TrainingBot - это бот для тренеров и спортсменов в
    5. Установить telegram id тренера в переменную TRAINER_ID (можно узнать тут https://t.me/userinfobot)
    6. Создать лист в Google Sheets с того же аккаунта с которого были созданы учетные данные в пункте 1.1
    7. Скопировать из адресной строки SPREADSHEET_ID в одноимённую переменную![img.png](instructions/img.png)
-   8. Перейти на https://www.strava.com/. Войти через Google. Перейти на https://www.strava.com/settings/api. Заполнить нужные данные и указать в "Домен для запросов приложения" домен или ip адрес сервера, либо localhost при локальном развертывании. ![img2.png](instructions%2Fimg2.png)
+   8. Перейти на https://www.strava.com/. Войти через Google. Перейти на https://www.strava.com/settings/api. Заполнить нужные данные и указать в "Домен для запросов приложения" домен или ip адрес сервера, либо localhost при локальном развертывании. <br> ![img2.png](instructions%2Fimg2.png)
    9. Скопировать значение ID клиента в SOCIAL_AUTH_STRAVA_KEY и Client Secret в SOCIAL_AUTH_STRAVA_SECRET ![img.png](instructions/img3.png)
 4. Запустить контейнеры командой `docker compose up -d --build` из корня проекта, либо `docker compose -f docker-compose.prod.yml up -d --build` если развертывание на сервере.
 5. Теперь можно пользоваться ботом !
